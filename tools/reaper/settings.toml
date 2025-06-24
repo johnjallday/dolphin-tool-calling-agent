@@ -1,0 +1,6 @@
+# Configuration for Reaper agent
+[reaper]
+default_template = "/Users/jj/Library/Application Support/REAPER/ProjectTemplates/Default.RPP"
+script_path = "/Users/jj/Workspace/johnj-programming/dolphin-tool-calling-agent/tools/reaper/custom_scripts/"
+projects_path = "/Users/jj/Workspace/Allday-Music/"
+
