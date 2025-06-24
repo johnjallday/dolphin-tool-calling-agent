@@ -11,8 +11,8 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/openai/openai-go"
 
-	"Dolphin-Tool-Calling-Agent/chat"
-	"Dolphin-Tool-Calling-Agent/registry"
+	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
+	"github.com/johnjallday/dolphin-tool-calling-agent/chat"
 )
 
 // listTools prints all available tools.

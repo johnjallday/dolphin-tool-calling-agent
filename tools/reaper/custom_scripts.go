@@ -9,7 +9,7 @@ import (
 
 	"github.com/openai/openai-go"
 
-	"Dolphin-Tool-Calling-Agent/tools"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
 )
 
 func launchTool(scriptName string) error {

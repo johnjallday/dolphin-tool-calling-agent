@@ -1,4 +1,4 @@
-module Dolphin-Tool-Calling-Agent
+module github.com/johnjallday/dolphin-tool-calling-agent
 
 go 1.24.0
 
@@ -49,4 +49,4 @@ require (
 )
 
 // Allow local imports under module path for blank-import tools
-replace Dolphin-Tool-Calling-Agent => ./
+replace github.com/johnjallday/dolphin-tool-calling-agent => ./

@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"encoding/json"
 
-	"Dolphin-Tool-Calling-Agent/tools"
-
-	"Dolphin-Tool-Calling-Agent/tools/calculator"
-	"Dolphin-Tool-Calling-Agent/tools/reaper"
-	"Dolphin-Tool-Calling-Agent/tools/weather"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools/calculator"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools/reaper"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools/weather"
 )
 
 var (

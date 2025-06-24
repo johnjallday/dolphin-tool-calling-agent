@@ -1,42 +1,28 @@
 package main
 
 import (
-    "fmt"
+	"log"
 
-    "fyne.io/fyne/v2"
-    "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/container"
-    "fyne.io/fyne/v2/widget"
-
-    "Dolphin-Tool-Calling-Agent/tools" // adjust import path
-
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 )
 
 func main() {
-    a := app.New()
-    w := a.NewWindow("Dolphin LLM Chatbot GUI")
+	myApp := app.New()
+	myWindow := myApp.NewWindow("Entry Widget")
 
-    input := widget.NewEntry()
-    input.SetPlaceHolder("Type your question...")
+	input := widget.NewEntry()
+	input.SetPlaceHolder("Enter text...")
+	// Set the OnSubmitted callback so that pressing Enter prints the content
+	input.OnSubmitted = func(text string) {
+		log.Println("Content was:", text)
+	}
 
-    output := widget.NewLabel("")
-    scroll := container.NewScroll(output)
-    scroll.SetMinSize(fyne.NewSize(400, 200))
+	content := container.NewVBox(input, widget.NewButton("Prompt", func() {
+		log.Println("Content was:", input.Text)
+	}))
 
-    input.OnSubmitted = func(text string) {
-        response, err := tools.HandleQuestion(text)
-        if err != nil {
-            output.SetText(fmt.Sprintf("Error: %v", err))
-            return
-        }
-        output.SetText(response)
-        input.SetText("")
-    }
-
-    w.SetContent(container.NewVBox(
-        scroll,
-        input,
-    ))
-
-    w.ShowAndRun()
+	myWindow.SetContent(content)
+	myWindow.ShowAndRun()
 }

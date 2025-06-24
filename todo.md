@@ -1,0 +1,1 @@
+- [ ] openai .env setup #created:2025-06-24 #workspace:johnj-programming

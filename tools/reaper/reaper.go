@@ -11,7 +11,7 @@ import (
 	"github.com/openai/openai-go"
 	//"github.com/pelletier/go-toml/v2"
 
-	"Dolphin-Tool-Calling-Agent/tools"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
 )
 
 type ReaperConfig struct {

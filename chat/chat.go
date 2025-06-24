@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/openai/openai-go"
-	"Dolphin-Tool-Calling-Agent/registry"
+	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
 )
 
 

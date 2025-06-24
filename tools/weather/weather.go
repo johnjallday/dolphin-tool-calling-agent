@@ -4,7 +4,7 @@ import (
 	//"encoding/json"
 	//"fmt"
 
-	"Dolphin-Tool-Calling-Agent/tools"
+	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
 	"github.com/openai/openai-go"
 )
 
