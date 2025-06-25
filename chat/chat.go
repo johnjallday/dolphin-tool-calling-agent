@@ -48,7 +48,6 @@ func (cb *Chatbot) SendMessage(ctx context.Context, userMessage string) (error) 
 	// Append assistant message to conversation
 	cb.params.Messages = append(cb.params.Messages, assistantMsg.ToParam())
 
-	fmt.Println(assistantMsg)
 
 	if len(assistantMsg.ToolCalls) == 0 {
 		// No tool calls, return assistant content directly

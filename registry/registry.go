@@ -32,6 +32,7 @@ func Initialize(params *openai.ChatCompletionNewParams) {
 		})
 	}
 }
+
 func RegisterSpec(ts tools.ToolSpec) {
 	specs = append(specs, ts)
 	handlers[ts.Name] = func(tc openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) {

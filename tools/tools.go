@@ -13,3 +13,5 @@ type ToolSpec struct {
 	Parameters  openai.FunctionParameters
 	Exec        func(map[string]interface{}) (string, error)
 }
+
+
