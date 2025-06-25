@@ -8,14 +8,11 @@ OpenAI api key
 
 ## Install
 ```bash
-```
 git clone https://github.com/johnjallday/dolphin-tool-calling-agent.git
-```
 ```
 
 ## Build
 To Build an REPL version
-```bash
 ```bash
 go build -o dolphin_repl ./cmd/repl
 ./dolphin_repl
@@ -26,8 +23,6 @@ Or simply
 go run ./cmd/repl
 ```
 
-```
-```
 ## Usage
 For Reaper users, I’ve created simple tools that can read and launch your custom Lua scripts. 
 Everyone has a different workflow, so I can’t provide a one-size-fits-all solution. 
