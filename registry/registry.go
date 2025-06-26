@@ -4,7 +4,7 @@ import (
 
 	"github.com/openai/openai-go"
 
-	"fmt"
+	//"fmt"
 	"encoding/json"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
@@ -44,7 +44,7 @@ func RegisterSpec(ts tools.ToolSpec) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(res)
+		//fmt.Println(res)
 		params.Messages = append(params.Messages, openai.ToolMessage(res, tc.ID))
 	}
 }
@@ -55,6 +55,9 @@ func Register() {
 	RegisterSpec(reaper.CreateNewProjectTool)
 	RegisterSpec(weather.WeatherTool)
 	for _, spec := range reaper.ReaperCustomScriptsSpecs {
+    RegisterSpec(spec)
+	}
+	for _, spec := range reaper.ReaperCustomTrackSpecs {
     RegisterSpec(spec)
 	}
 }

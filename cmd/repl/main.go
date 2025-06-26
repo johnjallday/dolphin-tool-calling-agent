@@ -12,7 +12,8 @@ import (
 	"github.com/openai/openai-go"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
-	"github.com/johnjallday/dolphin-tool-calling-agent/chat"
+	//"github.com/johnjallday/dolphin-tool-calling-agent/chat"
+	"github.com/johnjallday/dolphin-tool-calling-agent/agents"
 )
 
 // listTools prints all available tools.
@@ -76,7 +77,8 @@ func main() {
 	flag.Parse()
 
 	client := openai.NewClient()
-	chatbot := chat.NewChatbot(&client, openai.ChatModelGPT4_1Nano)
+	//agent := chat.NewChatbot(&client, openai.ChatModelGPT4_1Nano)
+	agentInstance := agent.NewAgent(&client, openai.ChatModelGPT4_1Nano)
 
 	if *showTools {
 		listTools()
@@ -96,7 +98,8 @@ func main() {
 			return
 		}
 
-		err := chatbot.SendMessage(ctx, question)
+		//err := chatbot.SendMessage(ctx, question)
+		err := agentInstance.SendMessage(ctx, question)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			continue
