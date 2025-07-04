@@ -63,12 +63,12 @@ func (a *DefaultAgent) SendMessage(ctx context.Context, userMessage string) erro
 	dispatchTools(assistantMsg.ToolCalls, &a.params)
 
 	// Get the final assistant response after tools have been executed.
-	finalCmp, err := a.client.Chat.Completions.New(ctx, a.params)
-	if err != nil {
-		return err
-	}
-	finalMsg := finalCmp.Choices[0].Message
-	a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
+	//finalCmp, err := a.client.Chat.Completions.New(ctx, a.params)
+	//if err != nil {
+	//	return err
+	//}
+	//finalMsg := finalCmp.Choices[0].Message
+	//a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
 
 	return nil
 }
@@ -87,9 +87,11 @@ func SendPromptAndReceiveToolCalls(ctx context.Context, client *openai.Client, p
 func dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) { 
 	handlers := registry.Handlers() 
 	for _, tc := range toolCalls { 
+		fmt.Println(tc.Function)
 		if h, ok := handlers[tc.Function.Name]; ok { 
 			fmt.Printf("Calling function: %s\n", tc.Function.Name) 
 			h(tc, params) 
+			//need logic for tools with input variables
 		} 
 	} 
 }

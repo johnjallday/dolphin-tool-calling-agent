@@ -12,7 +12,7 @@ import (
 	"github.com/openai/openai-go"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
-	//"github.com/johnjallday/dolphin-tool-calling-agent/chat"
+	"github.com/johnjallday/dolphin-tool-calling-agent/device"
 	"github.com/johnjallday/dolphin-tool-calling-agent/agents"
 )
 
@@ -72,6 +72,8 @@ func printLogo() {
 
 func main() {
 	printLogo()
+	device.GetCurrentAudioDevice()
+
 	showTools := flag.Bool("tools", false, "list available tools")
 	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
 	flag.Parse()
