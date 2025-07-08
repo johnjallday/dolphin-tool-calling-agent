@@ -96,7 +96,6 @@ func main() {
 	// Flags
 	showTools := flag.Bool("tools", false, "list available tools")
 	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
-	//configPath := flag.String("config", "./user/agents/calculator_agent.toml", "path to agent config TOML file")
 	configPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
 	flag.Parse()
 

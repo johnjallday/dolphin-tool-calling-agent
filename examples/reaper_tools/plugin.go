@@ -9,6 +9,7 @@ import (
 
 	"github.com/openai/openai-go"
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -16,6 +17,14 @@ const (
     packVersion = "v0.0.1"
     packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
 )
+
+
+type ReaperConfig struct {
+	DefaultTemplate string `toml:"default_template"`
+	ScriptPath      string `toml:"script_path"`
+}
+
+var reaperConfig ReaperConfig
 
 func launchTool(scriptName string) error {
 	scriptPath := filepath.Join("tools", "reaper", "custom_scripts", scriptName+".lua")
@@ -26,13 +35,20 @@ func launchTool(scriptName string) error {
 // RegisterCustomScripts scans the custom_scripts directory, builds a ToolSpec for each Lua script, 
 // // and returns a slice of these specs. 
 func LoadCustomScripts() []tools.ToolSpec { 
-	dir := filepath.Join("tools", "reaper", "custom_scripts") 
-	entries, err := os.ReadDir(dir) 
+	var specs []tools.ToolSpec
+
+	registerConfig()
+	if reaperConfig.ScriptPath == "" {
+		fmt.Errorf("ScriptPath Missing")
+		return specs
+	}
+
+	//dir := filepath.Join("tools", "reaper", "custom_scripts") 
+	entries, err := os.ReadDir(reaperConfig.ScriptPath) 
 	if err != nil { 
 		panic(fmt.Errorf("failed to read custom scripts directory: %w", err))
 	}
 
-	var specs []tools.ToolSpec
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -60,6 +76,46 @@ func LoadCustomScripts() []tools.ToolSpec {
 	}
 	return specs
 }
+
+
+func registerConfig() error {
+	configPath := "./user/tools/reaper_project_manager/settings.toml"
+	absPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return fmt.Errorf("could not resolve settings.toml path: %w", err)
+	}
+
+	// Check if settings.toml exists, if not, create it with default values
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		fmt.Println("settings.toml not found, creating default config...")
+
+		defaultConfig := ReaperConfig{
+			DefaultTemplate: "./tools/reaper/Default.RPP", // You can change this placeholder
+			ScriptPath:      "./tools/reaper/scripts",              // You can change this placeholder
+		}
+		// Serialize and write default config
+		f, ferr := os.Create(absPath)
+		if ferr != nil {
+			return fmt.Errorf("could not create settings.toml: %w", ferr)
+		}
+		defer f.Close()
+		enc := toml.NewEncoder(f)
+		if err := enc.Encode(defaultConfig); err != nil {
+			return fmt.Errorf("could not encode default config: %w", err)
+		}
+		fmt.Printf("Created %s with default values. Please edit as needed.\n", absPath)
+		reaperConfig = defaultConfig
+		return nil
+	}
+
+	// Load settings.toml
+	if _, err := toml.DecodeFile(absPath, &reaperConfig); err != nil {
+		return fmt.Errorf("failed to decode settings.toml: %w", err)
+	}
+	return nil
+}
+
+
 
 var ReaperCustomScriptsSpecs = LoadCustomScripts()
 // PluginSpecs is looked up by the host application (via NewAgentFromConfig).
