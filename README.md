@@ -1,8 +1,9 @@
 # 🐬Dolphin Tool Calling Agent
 This is a simple tool calling agent written in Go.
-If you want something compiled, then this is a way to go.
-Often times we don't really need a complicated AI that does everything for us.
-You want an AI agent that can help you with specific tasks.
+Often times, we don't really need a complicated AI that does everything for us.
+Not all AI fits all. Why not build your own tool?
+
+
 
 ## Requirement
 Go 1.24 or later
@@ -32,13 +33,20 @@ However, if you are comfortable writing your own custom scripts, this tool might
 
 ## Plugins
 
+To checkout how some plugins were built:
+github.com/johnjallday/dolphin-tool-calling-agent/examples
+
+```bash
 go build -buildmode=plugin -o calculator.so calculator_plugin/plugin.go
 create an agent with plugins or tools
+```
+
 
 ## Roadmap
 -[] GUI version using Fyne
--[] Agent Building UX
+-[] Agent Builder
 -[] Python Support
+-[] Windows DLL Support
 
 
 ## Support

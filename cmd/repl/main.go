@@ -93,22 +93,20 @@ func main() {
 	printLogo()
 	device.GetCurrentAudioDevice()
 
-    // Flags
-    showTools := flag.Bool("tools", false, "list available tools")
-    flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
-    //configPath := flag.String("config", "./user/agents/calculator_agent.toml", "path to agent config TOML file")
-    configPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
-    flag.Parse()
+	// Flags
+	showTools := flag.Bool("tools", false, "list available tools")
+	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
+	//configPath := flag.String("config", "./user/agents/calculator_agent.toml", "path to agent config TOML file")
+	configPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
+	flag.Parse()
 
-    client := openai.NewClient()
-    // Create agent from config
-	  agentInstance, err := agent.NewAgentFromConfig(&client, *configPath)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *configPath, err)
-        os.Exit(1)
-    }
-
-	//agent.SendMessage(ctx, "Please say hi using your plugin tool")
+	client := openai.NewClient()
+	// Create agent from config
+	agentInstance, err := agent.NewAgentFromConfig(&client, *configPath)
+	if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *configPath, err)
+			os.Exit(1)
+	}
 
 	if *showTools {
 		printTools()
