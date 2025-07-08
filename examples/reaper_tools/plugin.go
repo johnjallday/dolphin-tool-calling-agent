@@ -8,8 +8,13 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go"
-
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
+)
+
+const (
+		packName		= "Reaper Reascript Launcher"
+    packVersion = "v0.0.1"
+    packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
 )
 
 func launchTool(scriptName string) error {
@@ -56,20 +61,21 @@ func LoadCustomScripts() []tools.ToolSpec {
 	return specs
 }
 
-
 var ReaperCustomScriptsSpecs = LoadCustomScripts()
 // PluginSpecs is looked up by the host application (via NewAgentFromConfig).
 // It returns the slice of ToolSpec that the plugin makes available.
 // If you need to merge these with other tools (e.g. arithmetic tools), you could combine the slices here.
 func PluginSpecs() []tools.ToolSpec {
-
 	return ReaperCustomScriptsSpecs
-	// Optionally, if you have other tool specs defined elsewhere, you could do:
-	// combined := []tools.ToolSpec{}
-	// combined = append(combined, arithmeticTools... )
-	// combined = append(combined, ReaperCustomScriptsSpecs... )
-	// return combined
 }
 
 
+func PluginPackage() tools.ToolPackage {
+    return tools.ToolPackage{
+				Name:		 packName,
+        Version: packVersion,
+        Link:    packLink,
+        Specs:   LoadCustomScripts(),
+    }
+}
 

@@ -10,7 +10,6 @@ import (
    "github.com/openai/openai-go"
    "github.com/johnjallday/dolphin-tool-calling-agent/registry"
    "github.com/johnjallday/dolphin-tool-calling-agent/tools"
-   //"github.com/johnjallday/dolphin-tool-calling-agent/tools/reaper"
 )
 
 // Agent defines the methods any agent must implement. 
@@ -19,7 +18,6 @@ type Agent interface {
 	SendMessage(ctx context.Context, userMessage string) error 
 }
 
-// AgentConfig represents settings for creating an agent from a TOML file.
 // AgentConfig represents settings for creating an agent from a TOML file.
 type AgentConfig struct {
    Name        string   `toml:"name"`
@@ -42,9 +40,6 @@ func NewAgent(client *openai.Client, model string) Agent {
 		Temperature: openai.Float(0), 
 		Seed: openai.Int(0), 
 	}
-
-	//registry.Register()
-	//registry.RegisterSpec(reaper.CreateNewProjectTool)
 
 	registry.Initialize(&params)
 
@@ -69,32 +64,46 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
        Temperature: openai.Float(0),
        Seed:        openai.Int(0),
    }
-   // Register built-in tools and any core/custom tool specs
-   //registry.Register()
-   // Optionally handle additional tool paths
+
+	for _, pp := range cfg.PluginPaths {
+			absP, err := filepath.Abs(pp)
+			if err != nil {
+					return nil, fmt.Errorf("resolve plugin path %q: %w", pp, err)
+			}
+			plug, err := plugin.Open(absP)
+			if err != nil {
+					return nil, fmt.Errorf("open plugin %q: %w", absP, err)
+			}
+
+			// Try PluginPackage first
+			if symPkg, err := plug.Lookup("PluginPackage"); err == nil {
+					pkgFunc, ok := symPkg.(func() tools.ToolPackage)
+					if !ok {
+							return nil, fmt.Errorf("invalid PluginPackage signature in %q", absP)
+					}
+					pkg := pkgFunc()
+					fmt.Printf("Loaded tool package: name=%s version=%s link=%s\n", pkg.Name, pkg.Version, pkg.Link)
+					for _, spec := range pkg.Specs {
+							registry.RegisterSpec(spec)
+					}
+					continue
+			}
+
+			// Fallback to old PluginSpecs
+			symSpecs, err := plug.Lookup("PluginSpecs")
+			if err != nil {
+					return nil, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
+			}
+			specsFunc, ok := symSpecs.(func() []tools.ToolSpec)
+			if !ok {
+					return nil, fmt.Errorf("invalid PluginSpecs signature in %q", absP)
+			}
+			for _, spec := range specsFunc() {
+					registry.RegisterSpec(spec)
+			}
+	}
 
    // Dynamically load Go plugins for additional tools
-   for _, pp := range cfg.PluginPaths {
-       absP, err := filepath.Abs(pp)
-       if err != nil {
-           return nil, fmt.Errorf("unable to resolve plugin path %q: %w", pp, err)
-       }
-       plug, err := plugin.Open(absP)
-       if err != nil {
-           return nil, fmt.Errorf("failed to open plugin %q: %w", absP, err)
-       }
-       sym, err := plug.Lookup("PluginSpecs")
-       if err != nil {
-           return nil, fmt.Errorf("symbol PluginSpecs not found in plugin %q: %w", absP, err)
-       }
-       specsFunc, ok := sym.(func() []tools.ToolSpec)
-       if !ok {
-           return nil, fmt.Errorf("invalid PluginSpecs signature in plugin %q", absP)
-       }
-       for _, spec := range specsFunc() {
-           registry.RegisterSpec(spec)
-       }
-   }
    registry.Initialize(&params)
    return &DefaultAgent{client: client, params: params}, nil
 }

@@ -15,3 +15,9 @@ type ToolSpec struct {
 }
 
 
+type ToolPackage struct {
+	Name		string
+	Version string
+	Link    string
+	Specs   []ToolSpec
+}
