@@ -6,6 +6,12 @@ import (
 	"github.com/openai/openai-go"
 )
 
+const (
+		packName		= "Calculator"
+    packVersion = "v0.0.1"
+    packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
+)
+
 var AddTool = tools.ToolSpec{
 	Name:        "add",
 	Description: "Add two numbers a and b",
@@ -102,4 +108,18 @@ func PluginSpecs() []tools.ToolSpec {
 		MultiplyTool,
 		DivideTool,
 	}
+}
+
+func PluginPackage() tools.ToolPackage {
+    return tools.ToolPackage{
+				Name:		 packName,
+        Version: packVersion,
+        Link:    packLink,
+        Specs:   []tools.ToolSpec{ 
+					AddTool, 
+					SubtractTool,
+					MultiplyTool,
+					DivideTool,
+				},
+    }
 }

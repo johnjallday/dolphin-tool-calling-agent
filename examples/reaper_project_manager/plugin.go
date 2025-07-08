@@ -17,6 +17,11 @@ import (
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
 )
 
+const (
+		packName		= "Reaper Project Manager"
+    packVersion = "v0.0.1"
+    packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
+)
 
 type ReaperConfig struct {
 	DefaultTemplate string `toml:"default_template"`
@@ -143,4 +148,13 @@ func registerConfig() error {
 func PluginSpecs() []tools.ToolSpec {
 
 	return []tools.ToolSpec{ CreateNewProjectTool }
+}
+
+func PluginPackage() tools.ToolPackage {
+    return tools.ToolPackage{
+				Name:		 packName,
+        Version: packVersion,
+        Link:    packLink,
+        Specs:   []tools.ToolSpec{ CreateNewProjectTool },
+    }
 }

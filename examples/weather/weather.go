@@ -5,6 +5,11 @@ import (
 		"github.com/openai/openai-go"
 	)
 
+const (
+		packName		= "Weather"
+    packVersion = "v0.0.1"
+    packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
+)
 
 var WeatherTool = tools.ToolSpec{
 	Name:        "get_weather",
@@ -32,5 +37,11 @@ func PluginSpecs() []tools.ToolSpec {
 	return []tools.ToolSpec{ WeatherTool }
 }
 
-
-
+func PluginPackage() tools.ToolPackage {
+    return tools.ToolPackage{
+				Name:		 packName,
+        Version: packVersion,
+        Link:    packLink,
+        Specs:   []tools.ToolSpec{ WeatherTool },
+    }
+}
