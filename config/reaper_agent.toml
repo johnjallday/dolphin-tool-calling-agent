@@ -1,3 +1,0 @@
-name = "reaper" 
-model = "gpt-4.1-nano" 
-path_tools = [ "./tools/tool1", "./tools/tool2" ]

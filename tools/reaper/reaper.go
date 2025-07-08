@@ -10,6 +10,7 @@ import (
 
 	"github.com/openai/openai-go"
 	//"github.com/pelletier/go-toml/v2"
+	"github.com/BurntSushi/toml"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
 )
@@ -45,10 +46,12 @@ var CreateNewProjectTool = tools.ToolSpec{
 }
 
 func CreateNewProject(name string, bpm int) (string, error) {
+	registerConfig()
 	if reaperConfig.DefaultTemplate == "" {
 		return "", fmt.Errorf("default template not configured")
 	}
 	projectDir := name
+	fmt.Println(projectDir)
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return "", err
 	}
@@ -98,3 +101,41 @@ func CreateNewProject(name string, bpm int) (string, error) {
 }
 
 
+
+// Call this once on program startup before using tools that need config
+func registerConfig() error {
+	configPath := "./tools/reaper/settings.toml"
+	absPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return fmt.Errorf("could not resolve settings.toml path: %w", err)
+	}
+
+	// Check if settings.toml exists, if not, create it with default values
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		fmt.Println("settings.toml not found, creating default config...")
+
+		defaultConfig := ReaperConfig{
+			DefaultTemplate: "./tools/reaper/Default.RPP", // You can change this placeholder
+			ScriptPath:      "./tools/reaper/scripts",              // You can change this placeholder
+		}
+		// Serialize and write default config
+		f, ferr := os.Create(absPath)
+		if ferr != nil {
+			return fmt.Errorf("could not create settings.toml: %w", ferr)
+		}
+		defer f.Close()
+		enc := toml.NewEncoder(f)
+		if err := enc.Encode(defaultConfig); err != nil {
+			return fmt.Errorf("could not encode default config: %w", err)
+		}
+		fmt.Printf("Created %s with default values. Please edit as needed.\n", absPath)
+		reaperConfig = defaultConfig
+		return nil
+	}
+
+	// Load settings.toml
+	if _, err := toml.DecodeFile(absPath, &reaperConfig); err != nil {
+		return fmt.Errorf("failed to decode settings.toml: %w", err)
+	}
+	return nil
+}

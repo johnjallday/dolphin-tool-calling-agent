@@ -4,13 +4,12 @@ import (
 
 	"github.com/openai/openai-go"
 
-	//"fmt"
+	"fmt"
 	"encoding/json"
+	//"strings"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
-	"github.com/johnjallday/dolphin-tool-calling-agent/tools/calculator"
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools/reaper"
-	"github.com/johnjallday/dolphin-tool-calling-agent/tools/weather"
 )
 
 var (
@@ -38,25 +37,22 @@ func RegisterSpec(ts tools.ToolSpec) {
 	handlers[ts.Name] = func(tc openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) {
 		var args map[string]interface{}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-			panic(err)
+			params.Messages = append(params.Messages, openai.ToolMessage(fmt.Sprintf("Error: %v", err), tc.ID))
+			return
 		}
 		res, err := ts.Exec(args)
 		if err != nil {
-			panic(err)
+			params.Messages = append(params.Messages, openai.ToolMessage(fmt.Sprintf("Error: %v", err), tc.ID))
+			return
 		}
 		//fmt.Println(res)
 		params.Messages = append(params.Messages, openai.ToolMessage(res, tc.ID))
+		//fmt.Println("Messages")
+		//fmt.Println(strings(params.Messages))
 	}
 }
 
 func Register() {
-	RegisterSpec(calculator.ToolSpec)
-	RegisterSpec(calculator.MultiplySpec)
-	RegisterSpec(reaper.CreateNewProjectTool)
-	RegisterSpec(weather.WeatherTool)
-	for _, spec := range reaper.ReaperCustomScriptsSpecs {
-    RegisterSpec(spec)
-	}
 	for _, spec := range reaper.ReaperCustomTrackSpecs {
     RegisterSpec(spec)
 	}

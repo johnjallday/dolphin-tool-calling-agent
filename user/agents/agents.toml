@@ -1,0 +1,4 @@
+name         = "myagent"
+model = "gpt-4.1-nano" 
+#tool_path    = ["./tools/reaper/custom_scripts"]
+plugin_paths = ["./user/tools/mytool.so", "./user/tools/weather.so"]

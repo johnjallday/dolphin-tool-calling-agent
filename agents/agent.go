@@ -1,17 +1,31 @@
 package agent
 
 import (
-	"context"
-	"fmt"
+   "context"
+   "fmt"
+   "path/filepath"
+   "plugin"
 
-	"github.com/openai/openai-go"
-	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
+   "github.com/BurntSushi/toml"
+   "github.com/openai/openai-go"
+   "github.com/johnjallday/dolphin-tool-calling-agent/registry"
+   "github.com/johnjallday/dolphin-tool-calling-agent/tools"
+   //"github.com/johnjallday/dolphin-tool-calling-agent/tools/reaper"
 )
 
 // Agent defines the methods any agent must implement. 
 type Agent interface { 
 	// SendMessage sends a user message and processes the conversation. 
 	SendMessage(ctx context.Context, userMessage string) error 
+}
+
+// AgentConfig represents settings for creating an agent from a TOML file.
+// AgentConfig represents settings for creating an agent from a TOML file.
+type AgentConfig struct {
+   Name        string   `toml:"name"`
+   Model       string   `toml:"model"`
+   ToolPaths   []string `toml:"tool_path"`
+   PluginPaths []string `toml:"plugin_paths"`
 }
 
 // DefaultAgent is a concrete implementation of Agent. 
@@ -29,14 +43,60 @@ func NewAgent(client *openai.Client, model string) Agent {
 		Seed: openai.Int(0), 
 	}
 
-	registry.Register()
+	//registry.Register()
+	//registry.RegisterSpec(reaper.CreateNewProjectTool)
+
 	registry.Initialize(&params)
-	//fmt.Println(params)
 
 	return &DefaultAgent{
 		client: client,
 		params: params,
 	}
+}
+// NewAgentFromConfig loads a TOML config, registers tools, and returns a configured Agent.
+func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error) {
+   var cfg AgentConfig
+   absPath, err := filepath.Abs(configPath)
+   if err != nil {
+       return nil, fmt.Errorf("unable to resolve config path: %w", err)
+   }
+   if _, err := toml.DecodeFile(absPath, &cfg); err != nil {
+       return nil, fmt.Errorf("failed to decode config file: %w", err)
+   }
+   params := openai.ChatCompletionNewParams{
+       Messages:    []openai.ChatCompletionMessageParamUnion{},
+       Model:       cfg.Model,
+       Temperature: openai.Float(0),
+       Seed:        openai.Int(0),
+   }
+   // Register built-in tools and any core/custom tool specs
+   //registry.Register()
+   // Optionally handle additional tool paths
+
+   // Dynamically load Go plugins for additional tools
+   for _, pp := range cfg.PluginPaths {
+       absP, err := filepath.Abs(pp)
+       if err != nil {
+           return nil, fmt.Errorf("unable to resolve plugin path %q: %w", pp, err)
+       }
+       plug, err := plugin.Open(absP)
+       if err != nil {
+           return nil, fmt.Errorf("failed to open plugin %q: %w", absP, err)
+       }
+       sym, err := plug.Lookup("PluginSpecs")
+       if err != nil {
+           return nil, fmt.Errorf("symbol PluginSpecs not found in plugin %q: %w", absP, err)
+       }
+       specsFunc, ok := sym.(func() []tools.ToolSpec)
+       if !ok {
+           return nil, fmt.Errorf("invalid PluginSpecs signature in plugin %q", absP)
+       }
+       for _, spec := range specsFunc() {
+           registry.RegisterSpec(spec)
+       }
+   }
+   registry.Initialize(&params)
+   return &DefaultAgent{client: client, params: params}, nil
 }
 
 // SendMessage appends the user message, processes the chat response, 
@@ -54,22 +114,22 @@ func (a *DefaultAgent) SendMessage(ctx context.Context, userMessage string) erro
 	assistantMsg := cmp.Choices[0].Message
 	a.params.Messages = append(a.params.Messages, assistantMsg.ToParam())
 
-	// If there are no tool calls, exit early.
-	if len(assistantMsg.ToolCalls) == 0 {
-		return nil
-	}
-
+   // If there are no tool calls, print the assistant’s response and exit.
+   if len(assistantMsg.ToolCalls) == 0 {
+       fmt.Println(assistantMsg.Content)
+       return nil
+   }
 	// Dispatch tool calls and update the conversation with their responses.
 	dispatchTools(assistantMsg.ToolCalls, &a.params)
-
-	// Get the final assistant response after tools have been executed.
-	//finalCmp, err := a.client.Chat.Completions.New(ctx, a.params)
-	//if err != nil {
-	//	return err
-	//}
-	//finalMsg := finalCmp.Choices[0].Message
-	//a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
-
+	// After tool execution, get the final assistant response and print it.
+	finalResp, err := a.client.Chat.Completions.New(ctx, a.params)
+	if err != nil {
+		return err
+	}
+	finalMsg := finalResp.Choices[0].Message
+	fmt.Println(finalMsg.Content)
+	// Append final assistant message to the conversation history.
+	a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
 	return nil
 }
 
@@ -87,11 +147,9 @@ func SendPromptAndReceiveToolCalls(ctx context.Context, client *openai.Client, p
 func dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) { 
 	handlers := registry.Handlers() 
 	for _, tc := range toolCalls { 
-		fmt.Println(tc.Function)
+		//fmt.Println(tc)
 		if h, ok := handlers[tc.Function.Name]; ok { 
-			fmt.Printf("Calling function: %s\n", tc.Function.Name) 
 			h(tc, params) 
-			//need logic for tools with input variables
 		} 
 	} 
 }

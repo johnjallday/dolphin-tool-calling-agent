@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/openai/openai-go"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
@@ -21,6 +22,24 @@ func listTools() {
 	for _, ts := range registry.Specs() {
 		fmt.Printf("%s: %s\n", ts.Name, ts.Description)
 	}
+}
+
+func printTools() {
+	// ANSI color codes:
+	// "\033[1;32m" = bold green, "\033[36m" = cyan, "\033[0m" = reset
+	toolsSpecs := registry.Specs()
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	// Append header row.
+	t.AppendHeader(table.Row{"Name", "Description"})
+
+	for _, ts := range toolsSpecs {
+		// Using ANSI escape codes for colors: bold green for Name and cyan for Description.
+		coloredName := "\033[1;32m" + ts.Name + "\033[0m"
+		coloredDesc := "\033[36m" + ts.Description + "\033[0m"
+		t.AppendRow(table.Row{coloredName, coloredDesc})
+	}
+	t.Render()
 }
 
 func readQuestion() string {
@@ -74,26 +93,36 @@ func main() {
 	printLogo()
 	device.GetCurrentAudioDevice()
 
-	showTools := flag.Bool("tools", false, "list available tools")
-	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
-	flag.Parse()
+    // Flags
+    showTools := flag.Bool("tools", false, "list available tools")
+    flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
+    //configPath := flag.String("config", "./user/agents/calculator_agent.toml", "path to agent config TOML file")
+    configPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
+    flag.Parse()
 
-	client := openai.NewClient()
-	//agent := chat.NewChatbot(&client, openai.ChatModelGPT4_1Nano)
-	agentInstance := agent.NewAgent(&client, openai.ChatModelGPT4_1Nano)
+    client := openai.NewClient()
+    // Create agent from config
+	  agentInstance, err := agent.NewAgentFromConfig(&client, *configPath)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *configPath, err)
+        os.Exit(1)
+    }
+
+	//agent.SendMessage(ctx, "Please say hi using your plugin tool")
 
 	if *showTools {
-		listTools()
+		printTools()
 		return
 	}
 
-	listTools()
+	printTools()
 	ctx := context.Background()
 	for {
 		question := readQuestion()
 		switch strings.ToLower(question) {
 		case "help", "tools", "-t":
-			listTools()
+			printLogo()
+			printTools()
 			continue
 		case "exit", "quit":
 			fmt.Print("Bye!\r\n")
