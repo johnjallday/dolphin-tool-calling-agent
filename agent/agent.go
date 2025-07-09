@@ -23,7 +23,6 @@ type AgentConfig struct {
    Name        string   `toml:"name"`
    Model       string   `toml:"model"`
    ToolPaths   []string `toml:"tool_path"`
-   PluginPaths []string `toml:"plugin_paths"`
 }
 
 // DefaultAgent is a concrete implementation of Agent. 
@@ -65,10 +64,10 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
        Seed:        openai.Int(0),
    }
 
-	for _, pp := range cfg.PluginPaths {
-			absP, err := filepath.Abs(pp)
+	for _, tp := range cfg.ToolPaths {
+			absP, err := filepath.Abs(tp)
 			if err != nil {
-					return nil, fmt.Errorf("resolve plugin path %q: %w", pp, err)
+					return nil, fmt.Errorf("resolve plugin path %q: %w", tp, err)
 			}
 			plug, err := plugin.Open(absP)
 			if err != nil {
