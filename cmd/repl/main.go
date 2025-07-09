@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -13,11 +12,10 @@ import (
 	"github.com/openai/openai-go"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
-	"github.com/johnjallday/dolphin-tool-calling-agent/device"
+	//"github.com/johnjallday/dolphin-tool-calling-agent/device"
 	"github.com/johnjallday/dolphin-tool-calling-agent/agent"
 )
 
-// listTools prints all available tools.
 func listTools() {
 	for _, ts := range registry.Specs() {
 		fmt.Printf("%s: %s\n", ts.Name, ts.Description)
@@ -25,16 +23,11 @@ func listTools() {
 }
 
 func printTools() {
-	// ANSI color codes:
-	// "\033[1;32m" = bold green, "\033[36m" = cyan, "\033[0m" = reset
 	toolsSpecs := registry.Specs()
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	// Append header row.
 	t.AppendHeader(table.Row{"Name", "Description"})
-
 	for _, ts := range toolsSpecs {
-		// Using ANSI escape codes for colors: bold green for Name and cyan for Description.
 		coloredName := "\033[1;32m" + ts.Name + "\033[0m"
 		coloredDesc := "\033[36m" + ts.Description + "\033[0m"
 		t.AppendRow(table.Row{coloredName, coloredDesc})
@@ -43,10 +36,7 @@ func printTools() {
 }
 
 func readQuestion() string {
-	var rl *readline.Instance
-	var err error
-
-	rl, err = readline.New("> ")
+	rl, err := readline.New("> ")
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +44,7 @@ func readQuestion() string {
 
 	rl.Config.FuncFilterInputRune = func(r rune) (rune, bool) {
 		if r == readline.CharCtrlL {
-			fmt.Print("\033[H\033[2J") // clear screen
+			fmt.Print("\033[H\033[2J")
 			rl.Refresh()
 			return 0, false
 		}
@@ -65,7 +55,6 @@ func readQuestion() string {
 		line, err := rl.Readline()
 		if err != nil {
 			if err == readline.ErrInterrupt {
-				// Ctrl+C pressed
 				fmt.Println("\nExiting...")
 				os.Exit(0)
 			}
@@ -79,8 +68,6 @@ func readQuestion() string {
 	}
 }
 
-
-// printLogo prints a colored ASCII dolphin logo and the REPL title at startup.
 func printLogo() {
 	logo := `
 		🐬
@@ -89,22 +76,37 @@ func printLogo() {
 	fmt.Println("Dolphin Tool Calling REPL")
 }
 
+// Load an agent from a config file
+func loadAgent(client *openai.Client, path string) (agent.Agent, error) {
+	a, err := agent.NewAgentFromConfig(client, path)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Loaded agent from %s\n", path)
+	return a, nil
+}
+
 func main() {
 	printLogo()
-	device.GetCurrentAudioDevice()
 
-	// Flags
 	showTools := flag.Bool("tools", false, "list available tools")
 	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
-	configPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
+	defaultConfigPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
 	flag.Parse()
 
 	client := openai.NewClient()
-	// Create agent from config
-	agentInstance, err := agent.NewAgentFromConfig(&client, *configPath)
+	clientPtr := &client
+
+	var agentInstance agent.Agent
+	var agentConfigPath string
+
+	// Try to load default agent
+	agentInstance, err := loadAgent(clientPtr, *defaultConfigPath)
 	if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *configPath, err)
-			os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *defaultConfigPath, err)
+		// Don't exit! Let user load manually
+	} else {
+		agentConfigPath = *defaultConfigPath
 	}
 
 	if *showTools {
@@ -116,7 +118,12 @@ func main() {
 	ctx := context.Background()
 	for {
 		question := readQuestion()
-		switch strings.ToLower(question) {
+		parts := strings.Fields(question)
+		if len(parts) == 0 {
+			continue
+		}
+
+		switch strings.ToLower(parts[0]) {
 		case "help", "tools", "-t":
 			printLogo()
 			printTools()
@@ -124,13 +131,44 @@ func main() {
 		case "exit", "quit":
 			fmt.Print("Bye!\r\n")
 			return
+		case "load-agent":
+			if len(parts) < 2 {
+				fmt.Println("Usage: load-agent <path-to-toml>")
+				continue
+			}
+			newPath := parts[1]
+			//newAgent, err := loadAgent(client, newPath)
+			newAgent, err := loadAgent(clientPtr, newPath)
+			if err != nil {
+				fmt.Printf("Failed to load agent: %v\n", err)
+				continue
+			}
+			agentInstance = newAgent
+			agentConfigPath = newPath
+			continue
+		case "unload-agent":
+			agentInstance = nil
+			agentConfigPath = ""
+			registry.Clear() 
+			fmt.Println("Agent unloaded.")
+			continue
+		case "current-agent":
+			if agentInstance != nil && agentConfigPath != "" {
+				fmt.Printf("Current agent loaded from: %s\n", agentConfigPath)
+			} else {
+				fmt.Println("No agent loaded.")
+			}
+			continue
 		}
 
-		//err := chatbot.SendMessage(ctx, question)
+		if agentInstance == nil {
+			fmt.Println("No agent loaded. Use: load-agent <path-to-toml>")
+			continue
+		}
+
 		err := agentInstance.SendMessage(ctx, question)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
-			continue
 		}
 	}
 }

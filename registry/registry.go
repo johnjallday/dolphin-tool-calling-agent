@@ -59,3 +59,9 @@ func Handlers() map[string]func(openai.ChatCompletionMessageToolCall, *openai.Ch
 func Specs() []tools.ToolSpec {
 	return specs
 }
+
+
+func Clear() {
+	specs = nil
+	handlers = make(map[string]func(openai.ChatCompletionMessageToolCall, *openai.ChatCompletionNewParams))
+}
