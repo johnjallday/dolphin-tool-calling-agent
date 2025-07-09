@@ -1,30 +1,32 @@
 package agent
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+    "fmt"
+    "os"
+    "path/filepath"
+
+    "github.com/BurntSushi/toml"
 )
 
-func ListAgents() {
-	fmt.Println("Get List of Agents in the file")
-	files, err := os.ReadDir("./user/agents")
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
+// ListAgents reads all TOML files in "./user/agents" and returns their AgentConfig.
+func ListAgents() ([]AgentConfig, error) {
+    const dir = "./user/agents"
+    entries, err := os.ReadDir(dir)
+    if err != nil {
+        return nil, fmt.Errorf("read dir %q: %w", dir, err)
+    }
 
-	for _, f := range files {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".toml" {
-			filePath := filepath.Join("./user/agents", f.Name())
-			data, err := os.ReadFile(filePath)
-			if err != nil {
-				fmt.Printf("Error reading %s: %v\n", f.Name(), err)
-				continue
-			}
-			fmt.Printf("----- %s -----\n", f.Name())
-			fmt.Println(string(data))
-			fmt.Println("---------------------")
-		}
-	}
+    var configs []AgentConfig
+    for _, e := range entries {
+        if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
+            continue
+        }
+        path := filepath.Join(dir, e.Name())
+        var cfg AgentConfig
+        if _, err := toml.DecodeFile(path, &cfg); err != nil {
+            return nil, fmt.Errorf("decode %q: %w", e.Name(), err)
+        }
+        configs = append(configs, cfg)
+    }
+    return configs, nil
 }
