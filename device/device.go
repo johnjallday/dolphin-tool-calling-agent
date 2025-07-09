@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"log"
 	"github.com/gordonklaus/portaudio"
+
+
 )
+
+
 
 func GetAudioDevices() ([]*portaudio.DeviceInfo, error) {
     if err := portaudio.Initialize(); err != nil {
@@ -36,23 +40,22 @@ func GetAudioOutputDevices() ([]*portaudio.DeviceInfo, error) {
     return outputs, nil
 }
 
-func GetCurrentAudioDevice(){
-	err := portaudio.Initialize() 
-	if err != nil { 
-		log.Fatal(err) 
-	}
+func GetCurrentAudioDevice() (string, string) {
+    err := portaudio.Initialize()
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer portaudio.Terminate()
 
-	inputDev, err := portaudio.DefaultInputDevice()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Default input: %s\n", inputDev.Name)
-	// Get default output device
-	outputDev, err := portaudio.DefaultOutputDevice()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Default output: %s\n", outputDev.Name)
+    inputDev, err := portaudio.DefaultInputDevice()
+    if err != nil {
+        log.Fatal(err)
+    }
+    outputDev, err := portaudio.DefaultOutputDevice()
+    if err != nil {
+        log.Fatal(err)
+    }
+    return inputDev.Name, outputDev.Name
 }
 
 
