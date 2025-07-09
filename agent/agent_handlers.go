@@ -4,6 +4,6 @@ import(
 	"fmt"
 )
 
-func GetAgents(){
+func ListAgents(){
 	fmt.Println("Get List of Agents in the file")
 }

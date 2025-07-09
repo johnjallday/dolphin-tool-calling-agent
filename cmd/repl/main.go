@@ -14,7 +14,7 @@ import (
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
 	"github.com/johnjallday/dolphin-tool-calling-agent/device"
-	"github.com/johnjallday/dolphin-tool-calling-agent/agents"
+	"github.com/johnjallday/dolphin-tool-calling-agent/agent"
 )
 
 // listTools prints all available tools.

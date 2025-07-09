@@ -48,6 +48,13 @@ create an agent with plugins or tools
 -[] Python Support
 -[] Windows DLL Support
 
+## Potential Ideas
+-[] Tool Market
+
+
+## Download Tools
+Here are actively managed tools by me:
+Dolphin-Reaper-Tools
 
 ## Support
 coff.ee/johnjallday

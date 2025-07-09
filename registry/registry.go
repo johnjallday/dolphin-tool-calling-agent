@@ -6,10 +6,8 @@ import (
 
 	"fmt"
 	"encoding/json"
-	//"strings"
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/tools"
-	"github.com/johnjallday/dolphin-tool-calling-agent/tools/reaper"
 )
 
 var (
@@ -45,18 +43,13 @@ func RegisterSpec(ts tools.ToolSpec) {
 			params.Messages = append(params.Messages, openai.ToolMessage(fmt.Sprintf("Error: %v", err), tc.ID))
 			return
 		}
-		//fmt.Println(res)
+
 		params.Messages = append(params.Messages, openai.ToolMessage(res, tc.ID))
 		//fmt.Println("Messages")
 		//fmt.Println(strings(params.Messages))
 	}
 }
 
-func Register() {
-	for _, spec := range reaper.ReaperCustomTrackSpecs {
-    RegisterSpec(spec)
-	}
-}
 
 // Handlers returns the mapping of function names to handler functions.
 func Handlers() map[string]func(openai.ChatCompletionMessageToolCall, *openai.ChatCompletionNewParams) {
