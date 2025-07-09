@@ -7,7 +7,6 @@ import (
 )
 
 func main(){
-	fmt.Println("test")
 	//device.GetCurrentAudioDevice()
 	myDevices, err := device.GetAudioOutputDevices()
 	if err!= nil {
@@ -15,4 +14,10 @@ func main(){
 	}
 	device.PrintDevices(myDevices)
 	
+	network, err := device.GetMyCurrentNetwork()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Printf("SSID: %s\nBSSID: %s\n", network.SSID, network.BSSID)
 }
