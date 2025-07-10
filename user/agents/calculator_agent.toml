@@ -1,3 +1,0 @@
-name         = "my-calc-agent"
-model        = "gpt-4.1-nano"
-tool_paths = ["./user/tools/calculator.so", "./user/tools/mytool.so"]

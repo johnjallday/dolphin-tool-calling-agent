@@ -1,3 +1,0 @@
-name         = "myagent"
-model = "gpt-4.1-nano" 
-tool_path = ["./user/tools/mytool.so", "./user/tools/weather.so"]

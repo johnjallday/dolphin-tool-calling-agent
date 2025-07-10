@@ -2,38 +2,18 @@ package main
 
 import (
 	"context"
-	"flag"
+	//"flag"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/chzyer/readline"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/openai/openai-go"
 
-	"github.com/johnjallday/dolphin-tool-calling-agent/registry"
-	//"github.com/johnjallday/dolphin-tool-calling-agent/device"
-	"github.com/johnjallday/dolphin-tool-calling-agent/agent"
+	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
+	"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
+	"github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
 )
-
-func listTools() {
-	for _, ts := range registry.Specs() {
-		fmt.Printf("%s: %s\n", ts.Name, ts.Description)
-	}
-}
-
-func printTools() {
-	toolsSpecs := registry.Specs()
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Name", "Description"})
-	for _, ts := range toolsSpecs {
-		coloredName := "\033[1;32m" + ts.Name + "\033[0m"
-		coloredDesc := "\033[36m" + ts.Description + "\033[0m"
-		t.AppendRow(table.Row{coloredName, coloredDesc})
-	}
-	t.Render()
-}
 
 func readQuestion() string {
 	rl, err := readline.New("> ")
@@ -68,13 +48,6 @@ func readQuestion() string {
 	}
 }
 
-func printLogo() {
-	logo := `
-		🐬
-`
-	fmt.Print("\033[36m" + logo + "\033[0m\n")
-	fmt.Println("Dolphin Tool Calling REPL")
-}
 
 // Load an agent from a config file
 func loadAgent(client *openai.Client, path string) (agent.Agent, error) {
@@ -87,34 +60,29 @@ func loadAgent(client *openai.Client, path string) (agent.Agent, error) {
 }
 
 func main() {
-	printLogo()
-
-	showTools := flag.Bool("tools", false, "list available tools")
-	flag.BoolVar(showTools, "t", false, "list available tools (shorthand)")
-	defaultConfigPath := flag.String("config", "./user/agents/reaper_agent.toml", "path to agent config TOML file")
-	flag.Parse()
 
 	client := openai.NewClient()
 	clientPtr := &client
+	fmt.Println("OpenAI Client starting")
+
+	DefaultAgentPath := "./configs/user/agents/reaper_agent.toml"
+
+	tui.PrintLogo()
 
 	var agentInstance agent.Agent
 	var agentConfigPath string
 
 	// Try to load default agent
-	agentInstance, err := loadAgent(clientPtr, *defaultConfigPath)
+	agentInstance, err := loadAgent(clientPtr, DefaultAgentPath)
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", *defaultConfigPath, err)
-		// Don't exit! Let user load manually
+		fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", DefaultAgentPath, err)
 	} else {
-		agentConfigPath = *defaultConfigPath
+		//agentConfigPath = *defaultConfigPath
+		fmt.Println("test")
 	}
 
-	if *showTools {
-		printTools()
-		return
-	}
-
-	printTools()
+	tui.PrintTools()
 	ctx := context.Background()
 	for {
 		question := readQuestion()
@@ -125,8 +93,8 @@ func main() {
 
 		switch strings.ToLower(parts[0]) {
 		case "help", "tools", "-t":
-			printLogo()
-			printTools()
+			tui.PrintLogo()
+			tui.PrintTools()
 			continue
 		case "exit", "quit":
 			fmt.Print("Bye!\r\n")

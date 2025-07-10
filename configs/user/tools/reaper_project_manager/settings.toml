@@ -1,0 +1,2 @@
+default_template = "./user/tools/reaper_project_manager/Default.RPP"
+script_path = "./user/tools/reaper_project_manager/custom_scripts"

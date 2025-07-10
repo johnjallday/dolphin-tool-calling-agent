@@ -1,78 +1,53 @@
 package main
 
 import (
-    "fmt"
+  "fyne.io/fyne/v2"
+  "fyne.io/fyne/v2/app"
+  "fyne.io/fyne/v2/container"
+  "fyne.io/fyne/v2/driver/desktop"
+  //"fyne.io/fyne/v2/widget"
 
-    "fyne.io/fyne/v2"
-    "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/container"
-    "fyne.io/fyne/v2/widget"
-    "github.com/johnjallday/dolphin-tool-calling-agent/agent"
-    "github.com/johnjallday/dolphin-tool-calling-agent/gui"
+  //"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
+  "github.com/johnjallday/dolphin-tool-calling-agent/internal/gui"
 )
 
 func main() {
-    a := app.New()
-    w := a.NewWindow("Chat with Agents")
+  a := app.New()
+  w := a.NewWindow("Dolphin Tool")
 
-    configs, err := agent.ListAgents()
-    if err != nil {
-        fmt.Println("load agents:", err)
-    }
+  var chatView, agentView, helpView, locationView fyne.CanvasObject
 
-    var chatView, agentView fyne.CanvasObject
+  showChat := func() {
+    chatView.Show(); agentView.Hide(); helpView.Hide(); locationView.Hide()
+  }
+  showHelp := func() {
+    helpView.Show(); chatView.Hide(); agentView.Hide(); locationView.Hide()
+  }
+  showLocation := func() {
+    locationView.Show(); chatView.Hide(); agentView.Hide(); helpView.Hide()
+  }
 
-    globalHist := container.NewVBox()
-    globalScroll := container.NewScroll(globalHist)
+  // use the package‐level history adder
+  addToHistory := gui.AddToHistory
 
-    input := widget.NewEntry()
-    input.SetPlaceHolder("Type message or `/agent` or `/help`…")
+  chatView, _ = gui.NewChatView(showAgent, showHelp, showLocation)
 
-    addToHistory := func(txt string) {
-        if txt == "" {
-            return
-        }
-        globalHist.Add(widget.NewLabel(txt))
-        globalHist.Refresh()
-        globalScroll.ScrollToBottom()
-    }
+  //configs := []agent.AgentConfig{
+  //  {Name: "Agent A"},
+  //  {Name: "Agent B"},
+  //}
+  //agentView, _ = gui.NewAgentView(addToHistory, showChat)
+  helpView = gui.NewHelpView(w, showChat)
+	locationView = gui.NewLocationView(showChat)
 
-    commands := map[string]string{
-        "/agent":    "Switch to agent selection",
-        "/help":     "List available commands",
-        "/location": "Show current location & devices",
-    }
+  stack := container.NewMax(chatView, agentView, helpView, locationView)
+  w.SetContent(stack)
+  w.Resize(fyne.NewSize(600, 400))
 
-    showChat := func() { w.SetContent(chatView) }
-    agentView = gui.NewAgentView(w, configs, addToHistory, showChat)
+  w.Canvas().AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyTab}, func(_ fyne.Shortcut) {
+    showChat()
+  })
 
-    handle := func(txt string) {
-        input.SetText("")
-        cmd := txt
-        switch cmd {
-        case "/agent":
-            w.SetContent(agentView)
-        case "/help":
-            for k, d := range commands {
-                addToHistory(fmt.Sprintf("%-9s %s", k, d))
-            }
-        case "/location":
-            gui.ShowLocation(addToHistory)
-        default:
-            if cmd != "" {
-                addToHistory("You: " + cmd)
-            }
-        }
-    }
-
-    sendBtn := widget.NewButton("Send", func() { handle(input.Text) })
-    bottom := container.NewVBox(input, sendBtn)
-    chatView = container.NewBorder(nil, bottom, nil, nil, globalScroll)
-    input.OnSubmitted = handle
-
-    w.SetContent(chatView)
-    w.Resize(fyne.NewSize(500, 400))
-
-    gui.ShowLocation(addToHistory)
-    w.ShowAndRun()
+  showChat()
+  w.ShowAndRun()
 }
