@@ -10,7 +10,7 @@ import (
 
 // ListAgents reads all TOML files in "./user/agents" and returns their AgentConfig.
 func ListAgents() ([]AgentConfig, error) {
-    const dir = "./user/agents"
+    const dir = "./configs/user/agents"
     entries, err := os.ReadDir(dir)
     if err != nil {
         return nil, fmt.Errorf("read dir %q: %w", dir, err)

@@ -79,7 +79,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error loading agent config (%s): %v\n", DefaultAgentPath, err)
 	} else {
 		//agentConfigPath = *defaultConfigPath
-		fmt.Println("test")
 	}
 
 	tui.PrintTools()
@@ -99,6 +98,20 @@ func main() {
 		case "exit", "quit":
 			fmt.Print("Bye!\r\n")
 			return
+		case "list-agents", "list-agent", "list agent", "list agents":
+  		configs, err := agent.ListAgents()
+			if err!= nil{
+				fmt.Println("Error listing agents: Check your config folder")
+				continue
+			}
+			
+    	for _, cfg := range configs {
+				fmt.Println(cfg.Name)
+				fmt.Println(cfg.Model)
+				fmt.Println(cfg.ToolPaths)
+			}
+			continue
+		
 		case "load-agent":
 			if len(parts) < 2 {
 				fmt.Println("Usage: load-agent <path-to-toml>")
