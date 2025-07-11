@@ -166,7 +166,21 @@ func (a *REPLApp) Run(ctx context.Context) error {
 
   for {
     line, err := a.readLine()
-    if err != nil { /* … interrupt handling … */ }
+    if err != nil {
+			// Ctrl-C / interrupt
+      if err == readline.ErrInterrupt {
+        fmt.Fprintln(a.out, "\nInterrupted. Exiting.")
+        return nil
+      }
+      // Ctrl-D / EOF
+      if err == io.EOF {
+        fmt.Fprintln(a.out, "\nEOF. Exiting.")
+        return nil
+      }
+      // some other read error
+      fmt.Fprintln(a.out, "read error:", err)
+      continue
+		}
     if a.dispatch(line, ctx) {
       return nil
     }
