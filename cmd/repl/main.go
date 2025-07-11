@@ -1,19 +1,20 @@
 package main
 
 import (
-	"context"
 	"log"
-
+	"context"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
 
 func main() {
-	repl, err := app.NewREPLApp("./configs/settings.toml")
-	if err != nil {
-		log.Fatalf("failed to initialize REPL: %v", err)
-	}
 
-	if err := repl.Run(context.Background()); err != nil {
-		log.Fatalf("REPL error: %v", err)
-	}
+  app := app.NewREPLApp()
+  if err := app.Init("./configs/settings.toml", "jj"); err != nil {
+    log.Fatal(err)
+  }
+  ctx := context.Background()
+  if err := app.Run(ctx); err != nil {
+    log.Fatal(err)
+  }
+  _ = app.Shutdown()
 }

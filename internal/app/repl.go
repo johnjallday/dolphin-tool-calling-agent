@@ -1,177 +1,215 @@
 package app
 
 import (
-	"context"
-	"fmt"
-	//"os"
+  "context"
+  "fmt"
 	"strings"
+	"io"
+	"os"
 
-	"github.com/BurntSushi/toml"
-	"github.com/chzyer/readline"
-	openai "github.com/openai/openai-go"
+  "github.com/BurntSushi/toml"
+  "github.com/chzyer/readline"
+  openai "github.com/openai/openai-go"
 
-
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+  "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
+  "github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
+  "github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
+  "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
 )
 
-// REPLApp holds all state for your interactive session.
+var _ App = (*REPLApp)(nil)    // compile‐time check
+
+
+type nopWriteCloser struct{ io.Writer }
+func (nopWriteCloser) Close() error { return nil }
+
 type REPLApp struct {
-	settings        Settings
-	usr             *user.User
-	client          *openai.Client
-	currentAgent    agent.Agent
-	currentAgentCfg string
+  settingsPath     string
+  settings         Settings
+  usr              *user.User
+  client           *openai.Client
+  currentAgent     agent.Agent
+  currentAgentCfg  string
+  rl *readline.Instance
+  in  io.Reader
+  out io.Writer
 }
 
-// NewREPLApp loads settings.toml, the default user, and creates an OpenAI client.
-func NewREPLApp(settingsPath string) (*REPLApp, error) {
-    var s Settings
-    if _, err := toml.DecodeFile(settingsPath, &s); err != nil {
-        return nil, fmt.Errorf("decode settings: %w", err)
-    }
-    usr, err := user.LoadUser(s.DefaultUser)
-    if err != nil {
-        return nil, fmt.Errorf("load default user %q: %w", s.DefaultUser, err)
-    }
-    client := openai.NewClient()
-    return &REPLApp{settings: s, usr: usr, client: &client}, nil
-}
-//
-// Run starts the REPL loop.  It prints logo, loads default agent, prints tools, then reads commands.
-func (a *REPLApp) Run(ctx context.Context) error {
-    tui.PrintLogo()
-    a.usr.Print()
-    defaultPath, err := a.usr.AgentPath(a.usr.DefaultAgent)
-    if err != nil {
-        return err
-    }
-    if err := a.loadAgent(defaultPath); err != nil {
-        return err
-    }
-    tui.PrintTools()
 
-    for {
-        line, err := a.readLine()
-        if err != nil {
-            if err == readline.ErrInterrupt {
-                fmt.Println("\nExiting…")
-                return nil
-            }
-            return err
-        }
-        if done := a.handle(line, ctx); done {
-            return nil
-        }
-    }
-}
+func NewREPLAppWithIO(in io.Reader, out io.Writer) *REPLApp {
+  // default to real stdin/stdout if nil
+  if in == nil {
+    in = os.Stdin
+  }
+  if out == nil {
+    out = os.Stdout
+  }
 
-// loadAgent is the former loadAgent helper.
-func (a *REPLApp) loadAgent(path string) error {
-	ag, cfg, err := agent.NewAgentFromConfig(a.client, path)
-	if err != nil {
-		return err
-	}
-	a.currentAgent = ag
-	a.currentAgentCfg = path
-	fmt.Println(cfg)
-	fmt.Printf("Loaded agent from %s\n", path)
-	return nil
+  // make them into ReadCloser/WriteCloser
+  var rc io.ReadCloser
+  if c, ok := in.(io.ReadCloser); ok {
+    rc = c
+  } else {
+    rc = io.NopCloser(in)
+  }
+
+  var wc io.WriteCloser
+  if c, ok := out.(io.WriteCloser); ok {
+    wc = c
+  } else {
+    wc = nopWriteCloser{out}
+  }
+
+  rl, err := readline.NewEx(&readline.Config{
+    Prompt: "> ",
+    Stdin:  rc,
+    Stdout: wc,
+  })
+  if err != nil {
+    panic(err)
+  }
+
+  return &REPLApp{
+    rl:  rl,
+    in:  in,
+    out: out,
+  }
 }
 
-// readLine encapsulates your readline setup.
+
+
+func NewREPLApp() *REPLApp {
+  return NewREPLAppWithIO(nil, nil)
+}
+
+func (a *REPLApp) Init(settingsPath string, userName string) error {
+  a.settingsPath = settingsPath
+  // load settings
+  if _, err := toml.DecodeFile(settingsPath, &a.settings); err != nil {
+    return fmt.Errorf("decode settings: %w", err)
+  }
+  // load user
+  usr, err := user.LoadUser(userName)
+  if err != nil {
+    return fmt.Errorf("load user %q: %w", userName, err)
+  }
+  a.usr    = usr
+  client   := openai.NewClient()
+  a.client = &client
+  return nil
+}
+// readLine can now be:
 func (a *REPLApp) readLine() (string, error) {
-	rl, err := readline.New("> ")
-	if err != nil {
-		return "", err
-	}
-	defer rl.Close()
-
-	rl.Config.FuncFilterInputRune = func(r rune) (rune, bool) {
-		if r == readline.CharCtrlL {
-			fmt.Print("\033[H\033[2J")
-			rl.Refresh()
-			return 0, false
-		}
-		return r, true
-	}
-
-	for {
-		line, err := rl.Readline()
-		if err != nil {
-			return "", err
-		}
-		line = strings.TrimSpace(line)
-		if line != "" {
-			return line, nil
-		}
-	}
+  line, err := a.rl.Readline()
+  if err != nil {
+    return "", err
+  }
+  return strings.TrimSpace(line), nil
 }
 
-// handle runs one command.  Returns true if we should exit the REPL.
-func (a *REPLApp) handle(input string, ctx context.Context) bool {
-	parts := strings.Fields(input)
-	cmd := strings.ToLower(parts[0])
+// dispatch looks at the line, runs the right subcommand, and
+// returns true if we should exit the REPL:
+func (a *REPLApp) dispatch(line string, ctx context.Context) bool {
+  fields := strings.Fields(line)
+  if len(fields) == 0 {
+    return false
+  }
+  cmd := fields[0]
+  args := fields[1:]
 
-	switch cmd {
-	case "exit", "quit":
-		fmt.Println("Bye!")
-		return true
-
-	case "help", "tools", "-t":
-		tui.PrintLogo()
-		tui.PrintTools()
-
+  switch cmd {
+  case "load-agent":
+    if len(args) != 1 {
+      fmt.Fprintln(a.out, "usage: load-agent <path>")
+      break
+    }
+    if err := a.LoadAgent(args[0]); err != nil {
+      fmt.Fprintln(a.out, "error:", err)
+    }
+  case "unload-agent":
+    a.UnloadAgent()
+    fmt.Fprintln(a.out, "unloaded")
 	case "list-agents":
-		cfgs, err := agent.ListAgents()
+		agents, err := a.ListAgents()
 		if err != nil {
-			fmt.Println("Error listing agents:", err)
+			fmt.Fprintln(a.out, "error:", err)
 			break
 		}
-		for _, c := range cfgs {
-			fmt.Println(c.Name, c.Model, c.ToolPaths)
+		for _, cfg := range agents {
+			// print the name and model (whatever fields AgentConfig actually has)
+			fmt.Fprintf(a.out, "%s  (model=%s)\n", cfg.Name, cfg.Model)
 		}
-
-	case "create-agent":
-		agent.CreateAgent()
-
-	case "load-agent":
-		if len(parts) < 2 {
-			fmt.Println("Usage: load-agent <path-to-toml>")
-			break
-		}
-		if err := a.loadAgent(parts[1]); err != nil {
-			fmt.Println("Failed to load agent:", err)
-		}
-
-	case "unload-agent":
-		a.currentAgent = nil
-		a.currentAgentCfg = ""
-		registry.Clear()
-		fmt.Println("Agent unloaded.")
-
-	case "current-agent":
-		if a.currentAgent != nil {
-			fmt.Println("Current agent config:", a.currentAgentCfg)
-		} else {
-			fmt.Println("No agent loaded.")
-		}
-
-	case "tool-pack", "tool-packs":
-		tui.PrintToolPacks()
-
-	default:
-		// any other input is sent to the agent
-		if a.currentAgent == nil {
-			fmt.Println("No agent loaded. Use: load-agent <path-to-toml>")
-			break
-		}
-		if err := a.currentAgent.SendMessage(ctx, input); err != nil {
-			fmt.Println("Error:", err)
-		}
-	}
-
-	return false
+  case "create-agent":
+    if err := a.CreateAgent(); err != nil {
+      fmt.Fprintln(a.out, "error:", err)
+    }
+  case "exit", "quit":
+    fmt.Fprintln(a.out, "Exiting.")
+    return true
+  default:
+    fmt.Fprintln(a.out, "unknown command:", cmd)
+  }
+  return false
 }
+
+
+func (a *REPLApp) Run(ctx context.Context) error {
+  tui.PrintLogo()
+  a.usr.Print()
+
+  // load the user’s default agent if any
+  defaultPath, err := a.usr.AgentPath(a.usr.DefaultAgent)
+  if err == nil {
+    _ = a.LoadAgent(defaultPath)
+    tui.PrintTools()
+  }
+
+  for {
+    line, err := a.readLine()
+    if err != nil { /* … interrupt handling … */ }
+    if a.dispatch(line, ctx) {
+      return nil
+    }
+  }
+}
+
+func (a *REPLApp) Shutdown() error {
+  // nothing right now, but maybe close files, etc.
+  return nil
+}
+
+func (a *REPLApp) LoadAgent(path string) error {
+  ag, cfg, err := agent.NewAgentFromConfig(a.client, path)
+  if err != nil {
+    return err
+  }
+  a.currentAgent    = ag
+  a.currentAgentCfg = path
+  fmt.Printf("Loaded agent %s (model=%s)\n", cfg.Name, cfg.Model)
+  return nil
+}
+
+func (a *REPLApp) UnloadAgent() {
+  a.currentAgent    = nil
+  a.currentAgentCfg = ""
+  registry.Clear()
+}
+
+func (a *REPLApp) CurrentAgent() agent.Agent {
+  return a.currentAgent
+}
+
+func (a *REPLApp) CurrentAgentConfig() string {
+  return a.currentAgentCfg
+}
+
+func (a *REPLApp) ListAgents() ([]agent.AgentConfig, error) {
+  return agent.ListAgents()
+}
+
+func (a *REPLApp) CreateAgent() error {
+
+  return nil
+}
+
+// … your existing readLine() and dispatch() methods go here, plus helper sub‐commands …
