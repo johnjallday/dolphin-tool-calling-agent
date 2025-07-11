@@ -6,6 +6,7 @@ import (
     "path/filepath"
 
     "github.com/BurntSushi/toml"
+   	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
 // ListAgents reads all TOML files in "./user/agents" and returns their AgentConfig.
@@ -30,3 +31,14 @@ func ListAgents() ([]AgentConfig, error) {
     }
     return configs, nil
 }
+
+
+func CreateAgent(){
+	//CreateAgent
+	//
+	fmt.Println("Creating Agent")
+	//ask for name:
+	files := tools.GetAvailableToolPacks()
+	fmt.Println(files)
+}
+

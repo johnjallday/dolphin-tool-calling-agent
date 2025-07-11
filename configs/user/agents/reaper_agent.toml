@@ -1,3 +1,0 @@
-name         = "my-reaper-agent"
-model        = "gpt-4.1-nano" 
-tool_path = ["./configs/user/tools/reaper_tools.so", "./configs/user/tools/reaper_project_manager/reaper_project_manager.so"]

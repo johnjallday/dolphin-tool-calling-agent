@@ -30,3 +30,18 @@ func PrintTools() {
 	t.Render()
 }
 
+
+func PrintToolPacks() {
+    const dir = "./configs/tools"
+    entries, err := os.ReadDir(dir)
+    if err != nil {
+        fmt.Println("error reading tools:", err)
+        return
+    }
+    for _, e := range entries {
+        if e.Name() == ".DS_Store" {
+            continue
+        }
+        fmt.Println(e.Name())
+    }
+}

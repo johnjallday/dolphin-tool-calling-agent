@@ -9,7 +9,7 @@ import (
 
 
 func GetAvailableToolPacks() []string {
-    rootDir := "./user/tools"
+    rootDir := "./configs/user/tools"
     var soFiles []string
 
     filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
@@ -27,7 +27,7 @@ func GetAvailableToolPacks() []string {
 }
 
 func CheckOutToolPack() {
-	rootDir := "./user/tools"
+	rootDir := "./configs/user/tools"
 	toolPath := filepath.Join(rootDir, "reaper_tools.so")
 	plug, err:= plugin.Open(toolPath)
 
