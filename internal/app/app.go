@@ -9,7 +9,7 @@ import (
 type App interface {
   // Initialize the app with a Settings path and a user name.
   // Loads settings.toml and user profile.
-  Init(settingsPath string, userName string) error
+  Init() error
   Run(ctx context.Context) error
   Shutdown() error
   // Agent management:

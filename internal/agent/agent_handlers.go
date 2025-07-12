@@ -9,9 +9,10 @@ import (
    	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
-// ListAgents reads all TOML files in "./user/agents" and returns their AgentConfig.
-func ListAgents() ([]AgentConfig, error) {
-    const dir = "./configs/user/agents"
+// ListAgents reads all the .toml files in ./configs/<userName>/agents
+func ListAgents(userName string) ([]AgentConfig, error) {
+    dir := filepath.Join("configs", userName, "agents")
+
     entries, err := os.ReadDir(dir)
     if err != nil {
         return nil, fmt.Errorf("read dir %q: %w", dir, err)

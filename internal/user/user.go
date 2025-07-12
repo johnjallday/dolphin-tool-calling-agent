@@ -16,19 +16,44 @@ type User struct {
 }
 
 func LoadUser(userId string) (*User, error) {
-  // 1. load default_agent
-  userConfigPath := filepath.Join("configs", userId, "user_setting.toml")
+  // ensure user dir
+  userDir := filepath.Join("configs", userId)
+  if err := os.MkdirAll(userDir, 0755); err != nil {
+    return nil, fmt.Errorf("mkdir user dir: %w", err)
+  }
+
+  // ensure user_setting.toml
+  cfgPath := filepath.Join(userDir, "user_setting.toml")
+  if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+    // write a minimal file
+    u0 := &User{Name: userId}
+    f, err := os.Create(cfgPath)
+    if err != nil {
+      return nil, fmt.Errorf("create %q: %w", cfgPath, err)
+    }
+    defer f.Close()
+    if err := toml.NewEncoder(f).Encode(u0); err != nil {
+      return nil, fmt.Errorf("encode default user: %w", err)
+    }
+  } else if err != nil {
+    return nil, fmt.Errorf("stat %q: %w", cfgPath, err)
+  }
+
+  // now decode it
   var u User
-  if _, err := toml.DecodeFile(userConfigPath, &u); err != nil {
-    return nil, fmt.Errorf("failed to load user config %q: %w", userConfigPath, err)
+  if _, err := toml.DecodeFile(cfgPath, &u); err != nil {
+    return nil, fmt.Errorf("decode %q: %w", cfgPath, err)
   }
   u.Name = userId
 
-  // 2. scan agents directory
-  agentsDir := filepath.Join("configs", userId, "agents")
+  // ensure agents dir & scan it
+  agentsDir := filepath.Join(userDir, "agents")
+  if err := os.MkdirAll(agentsDir, 0755); err != nil {
+    return nil, fmt.Errorf("mkdir agents dir: %w", err)
+  }
   entries, err := os.ReadDir(agentsDir)
   if err != nil {
-    return nil, fmt.Errorf("failed to read agents dir %q: %w", agentsDir, err)
+    return nil, fmt.Errorf("read agents dir: %w", err)
   }
   for _, e := range entries {
     if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
@@ -37,6 +62,7 @@ func LoadUser(userId string) (*User, error) {
     name := e.Name()[:len(e.Name())-len(".toml")]
     u.Agents = append(u.Agents, name)
   }
+
   return &u, nil
 }
 
