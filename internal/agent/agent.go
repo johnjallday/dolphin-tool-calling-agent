@@ -48,14 +48,14 @@ func NewAgent(client *openai.Client, model string) Agent {
 	}
 }
 // NewAgentFromConfig loads a TOML config, registers tools, and returns a configured Agent.
-func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, AgentConfig, error) {
+func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error) {
    var cfg AgentConfig
    absPath, err := filepath.Abs(configPath)
    if err != nil {
-       return nil, AgentConfig{}, fmt.Errorf("unable to resolve config path: %w", err)
+       return nil, fmt.Errorf("unable to resolve config path: %w", err)
    }
    if _, err := toml.DecodeFile(absPath, &cfg); err != nil {
-       return nil, AgentConfig{}, fmt.Errorf("failed to decode config file: %w", err)
+       return nil, fmt.Errorf("failed to decode config file: %w", err)
    }
    params := openai.ChatCompletionNewParams{
        Messages:    []openai.ChatCompletionMessageParamUnion{},
@@ -64,45 +64,48 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, AgentC
        Seed:        openai.Int(0),
    }
 
-   for _, tp := range cfg.ToolPaths {
-       absP, err := filepath.Abs(tp)
-       if err != nil {
-           return nil, AgentConfig{}, fmt.Errorf("resolve plugin path %q: %w", tp, err)
-       }
-       plug, err := plugin.Open(absP)
-       if err != nil {
-           return nil, AgentConfig{}, fmt.Errorf("open plugin %q: %w", absP, err)
-       }
-       if symPkg, err := plug.Lookup("PluginPackage"); err == nil {
-           pkgFunc, ok := symPkg.(func() tools.ToolPackage)
-           if !ok {
-               return nil, AgentConfig{}, fmt.Errorf("invalid PluginPackage signature in %q", absP)
-           }
-           pkg := pkgFunc()
-           fmt.Printf("Loaded tool package: name=%s version=%s link=%s\n", pkg.Name, pkg.Version, pkg.Link)
-           for _, spec := range pkg.Specs {
-               registry.RegisterSpec(spec)
-           }
-           continue
-       }
-       symSpecs, err := plug.Lookup("PluginSpecs")
-       if err != nil {
-           return nil, AgentConfig{}, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
-       }
-       specsFunc, ok := symSpecs.(func() []tools.ToolSpec)
-       if !ok {
-           return nil, AgentConfig{}, fmt.Errorf("invalid PluginSpecs signature in %q", absP)
-       }
-       for _, spec := range specsFunc() {
-           registry.RegisterSpec(spec)
-       }
-   }
+	for _, tp := range cfg.ToolPaths {
+			absP, err := filepath.Abs(tp)
+			if err != nil {
+					return nil, fmt.Errorf("resolve plugin path %q: %w", tp, err)
+			}
+			plug, err := plugin.Open(absP)
+			if err != nil {
+					return nil, fmt.Errorf("open plugin %q: %w", absP, err)
+			}
 
+			// Try PluginPackage first
+			if symPkg, err := plug.Lookup("PluginPackage"); err == nil {
+					pkgFunc, ok := symPkg.(func() tools.ToolPackage)
+					if !ok {
+							return nil, fmt.Errorf("invalid PluginPackage signature in %q", absP)
+					}
+					pkg := pkgFunc()
+					fmt.Printf("Loaded tool package: name=%s version=%s link=%s\n", pkg.Name, pkg.Version, pkg.Link)
+					for _, spec := range pkg.Specs {
+							registry.RegisterSpec(spec)
+					}
+					continue
+			}
+
+			// Fallback to old PluginSpecs
+			symSpecs, err := plug.Lookup("PluginSpecs")
+			if err != nil {
+					return nil, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
+			}
+			specsFunc, ok := symSpecs.(func() []tools.ToolSpec)
+			if !ok {
+					return nil, fmt.Errorf("invalid PluginSpecs signature in %q", absP)
+			}
+			for _, spec := range specsFunc() {
+					registry.RegisterSpec(spec)
+			}
+	}
+
+   // Dynamically load Go plugins for additional tools
    registry.Initialize(&params)
-   agent := &DefaultAgent{client: client, params: params}
-   return agent, cfg, nil
+   return &DefaultAgent{client: client, params: params}, nil
 }
-
 
 // SendMessage appends the user message, processes the chat response, 
 // dispatches tool calls if any, and appends the final response. 
