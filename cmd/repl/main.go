@@ -6,7 +6,8 @@ import (
   "fmt"
   "os"
   "strings"
-  //"path/filepath"
+	"strconv"
+  "path/filepath"
 
   "github.com/chzyer/readline"
   "github.com/openai/openai-go"
@@ -65,6 +66,40 @@ func loadAgent(client *openai.Client, path string) (agent.Agent, error) {
   return a, nil
 }
 
+
+func selectAgent(client *openai.Client, usr *user.User) (agent.Agent, string, error) {
+  configs, err := agent.ListAgents(usr.Name)
+  if err != nil {
+    return nil, "", fmt.Errorf("cannot list agents: %w", err)
+  }
+  if len(configs) == 0 {
+    return nil, "", fmt.Errorf("no agents found for user %q", usr.Name)
+  }
+
+  fmt.Println("Please choose an agent:")
+  for i, cfg := range configs {
+    fmt.Printf("  %d) %s (model=%s, tools=%v)\n", i+1, cfg.Name, cfg.Model, cfg.ToolPaths)
+  }
+  fmt.Print("Enter number: ")
+  sel := readQuestion()
+  idx, err := strconv.Atoi(sel)
+  if err != nil || idx < 1 || idx > len(configs) {
+    return nil, "", fmt.Errorf("invalid selection")
+  }
+
+  chosen := configs[idx-1].Name
+
+	agentPath := filepath.Join("./configs",usr.Name, "agents", chosen + ".toml")
+  if err != nil {
+    return nil, "", fmt.Errorf("cannot resolve path for agent %q: %w", chosen, err)
+  }
+  a, err := loadAgent(client, agentPath)
+  if err != nil {
+    return nil, "", fmt.Errorf("failed to load agent %q: %w", chosen, err)
+  }
+  return a, agentPath, nil
+}
+
 func main() {
   tui.PrintLogo()
 
@@ -74,13 +109,13 @@ func main() {
     fmt.Fprintf(os.Stderr, "Failed to load settings.toml: %v\n", err)
     os.Exit(1)
   }
-
+	
   // Load User
   usr, err := user.LoadUser(cfg.DefaultUser)
 
   if err != nil {
     fmt.Fprintf(os.Stderr, "Failed to load user config for %q: %v\n", cfg.DefaultUser, err)
-    os.Exit(1)
+    //os.Exit(1)
   }
 
 	usr.Print()
@@ -88,8 +123,10 @@ func main() {
 	defaultAgentPath, err := usr.AgentPath(usr.DefaultAgent)
 	if err != nil {
     fmt.Fprintf(os.Stderr, "%v\n", err)
-    os.Exit(1)
+    //os.Exit(1)
   }
+
+
 
   client := openai.NewClient()
   clientPtr := &client
@@ -105,16 +142,21 @@ func main() {
   var agentInstance agent.Agent
   var agentConfigPath string
 
-
-  agentInstance, err = loadAgent(clientPtr, defaultAgentPath)
+	agentConfigPath = defaultAgentPath
+  //agentInstance, err = loadAgent(clientPtr, defaultAgentPath)
 
   if err != nil {
-    fmt.Fprintf(os.Stderr, "Error loading agent (%s): %v\n", defaultAgentPath, err)
+    fmt.Fprintf(os.Stderr, "Error loading default agent (%s): %v\n", defaultAgentPath, err)
+    agentInstance, agentConfigPath, err = selectAgent(clientPtr, usr)
+    if err != nil {
+      fmt.Fprintf(os.Stderr, "No agent loaded: %v\n", err)
+      os.Exit(1)
+    }
+  } else {
+    agentConfigPath = defaultAgentPath
   }
 
   tui.PrintTools()
-
-
 
 
 	//REPL
@@ -136,7 +178,7 @@ func main() {
       fmt.Print("Bye!\r\n")
       return
     case "list-agents", "list-agent", "list agent", "list agents":
-      configs, err := agent.ListAgents("jj")
+      configs, err := agent.ListAgents(usr.Name)
       if err != nil {
         fmt.Println("Error listing agents: Check your config folder")
         continue
@@ -172,7 +214,7 @@ func main() {
       fmt.Println("Agent unloaded.")
       continue
     case "current-agent":
-      if agentInstance != nil && agentConfigPath != "" {
+      if agentInstance != nil {
         fmt.Printf("Current agent loaded from: %s\n", agentConfigPath)
       } else {
         fmt.Println("No agent loaded.")

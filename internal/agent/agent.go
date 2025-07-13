@@ -31,22 +31,7 @@ type DefaultAgent struct {
 	params openai.ChatCompletionNewParams 
 }
 
-// NewAgent creates and returns a new DefaultAgent. 
-func NewAgent(client *openai.Client, model string) Agent { 
-	params := openai.ChatCompletionNewParams{ 
-		Messages: []openai.ChatCompletionMessageParamUnion{}, 
-		Model: model, 
-		Temperature: openai.Float(0), 
-		Seed: openai.Int(0), 
-	}
 
-	registry.Initialize(&params)
-
-	return &DefaultAgent{
-		client: client,
-		params: params,
-	}
-}
 // NewAgentFromConfig loads a TOML config, registers tools, and returns a configured Agent.
 func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error) {
    var cfg AgentConfig
@@ -81,7 +66,6 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
 							return nil, fmt.Errorf("invalid PluginPackage signature in %q", absP)
 					}
 					pkg := pkgFunc()
-					fmt.Printf("Loaded tool package: name=%s version=%s link=%s\n", pkg.Name, pkg.Version, pkg.Link)
 					for _, spec := range pkg.Specs {
 							registry.RegisterSpec(spec)
 					}
@@ -141,15 +125,7 @@ func (a *DefaultAgent) SendMessage(ctx context.Context, userMessage string) erro
 	return nil
 }
 
-// SendPromptAndReceiveToolCalls sends a prompt and returns the message along with any tool calls. 
-func SendPromptAndReceiveToolCalls(ctx context.Context, client *openai.Client, params *openai.ChatCompletionNewParams) (openai.ChatCompletionMessage, []openai.ChatCompletionMessageToolCall) { 
-	cmp, err := client.Chat.Completions.New(ctx, *params) 
-	if err != nil { 
-		panic(err) 
-	} 
-	msg := cmp.Choices[0].Message 
-	return msg, msg.ToolCalls 
-}
+
 
 // dispatchTools processes any tool calls by dispatching them to the registered handlers. 
 func dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) { 
@@ -162,11 +138,4 @@ func dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall, params *ope
 	} 
 }
 
-// runFinalChat executes the final chat call and prints the assistant’s response. 
-func runFinalChat(ctx context.Context, client *openai.Client, params *openai.ChatCompletionNewParams) { 
-	final, err := client.Chat.Completions.New(ctx, *params) 
-	if err != nil { 
-		panic(err) 
-	} 
-	fmt.Println(final.Choices[0].Message.Content) 
-}
+
