@@ -31,7 +31,6 @@ type DefaultAgent struct {
 	params openai.ChatCompletionNewParams 
 }
 
-
 // NewAgentFromConfig loads a TOML config, registers tools, and returns a configured Agent.
 func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error) {
    var cfg AgentConfig
@@ -124,7 +123,6 @@ func (a *DefaultAgent) SendMessage(ctx context.Context, userMessage string) erro
 	a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
 	return nil
 }
-
 
 
 // dispatchTools processes any tool calls by dispatching them to the registered handlers. 

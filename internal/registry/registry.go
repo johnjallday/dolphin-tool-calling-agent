@@ -45,8 +45,6 @@ func RegisterSpec(ts tools.ToolSpec) {
 		}
 
 		params.Messages = append(params.Messages, openai.ToolMessage(res, tc.ID))
-		//fmt.Println("Messages")
-		//fmt.Println(strings(params.Messages))
 	}
 }
 

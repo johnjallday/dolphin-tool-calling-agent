@@ -57,15 +57,6 @@ func readQuestion() string {
   }
 }
 
-func loadAgent(client *openai.Client, path string) (agent.Agent, error) {
-  a, err := agent.NewAgentFromConfig(client, path)
-  if err != nil {
-    return nil, err
-  }
-  fmt.Printf("Loaded agent from %s\n", path)
-  return a, nil
-}
-
 
 func selectAgent(client *openai.Client, usr *user.User) (agent.Agent, string, error) {
   configs, err := agent.ListAgents(usr.Name)
@@ -93,7 +84,8 @@ func selectAgent(client *openai.Client, usr *user.User) (agent.Agent, string, er
   if err != nil {
     return nil, "", fmt.Errorf("cannot resolve path for agent %q: %w", chosen, err)
   }
-  a, err := loadAgent(client, agentPath)
+
+  a, err := agent.NewAgentFromConfig(client, agentPath)
   if err != nil {
     return nil, "", fmt.Errorf("failed to load agent %q: %w", chosen, err)
   }
@@ -107,6 +99,9 @@ func main() {
   var cfg AppConfig
   if _, err := toml.DecodeFile("./configs/settings.toml", &cfg); err != nil {
     fmt.Fprintf(os.Stderr, "Failed to load settings.toml: %v\n", err)
+		//Need to Implement: In case settings.toml does not exist
+		//AppConfig
+		//create ./configs/settings.toml
     os.Exit(1)
   }
 	
@@ -132,11 +127,9 @@ func main() {
   clientPtr := &client
 
 	fmt.Println()
-	fmt.Println()
 	fmt.Println("Loading:", usr.DefaultAgent)
 	fig := figure.NewColorFigure(usr.DefaultAgent, "", "cyan", true)
 	fig.Print()
-	fmt.Println()
 	fmt.Println()
 
   var agentInstance agent.Agent
@@ -199,7 +192,9 @@ func main() {
         continue
       }
       newPath := parts[1]
-      newAgent, err := loadAgent(clientPtr, newPath)
+      //newAgent, err := loadAgent(clientPtr, newPath)
+
+  		newAgent, err := agent.NewAgentFromConfig(clientPtr, newPath)
       if err != nil {
         fmt.Printf("Failed to load agent: %v\n", err)
         continue
