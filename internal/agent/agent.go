@@ -68,26 +68,9 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
 					}
 					pkg := pkgFunc()
 					for _, t := range pkg.Tools {
-							registry.RegisterSpec(t)
+							registry.RegisterTool(t)
 					}
 					continue
-			}
-
-			// Fallback to PluginSpecs (variable or function)
-			if symSpecs, err := plug.Lookup("PluginSpecs"); err == nil {
-					if specsPtr, ok := symSpecs.(*[]tools.Tool); ok {
-							for _, spec := range *specsPtr {
-									registry.RegisterSpec(spec)
-							}
-							continue
-					}
-					if specsFunc, ok := symSpecs.(func() []tools.Tool); ok {
-							for _, spec := range specsFunc() {
-									registry.RegisterSpec(spec)
-							}
-							continue
-					}
-					return nil, fmt.Errorf("invalid PluginSpecs type or signature in %q", absP)
 			}
 
 			return nil, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
