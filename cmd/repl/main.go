@@ -1,21 +1,17 @@
 package main
 
 import (
-
   "context"
   "fmt"
   "os"
   "strings"
-	"strconv"
-  "path/filepath"
 
   "github.com/chzyer/readline"
   "github.com/openai/openai-go"
+  "github.com/common-nighthawk/go-figure"
   "github.com/BurntSushi/toml"
-	"github.com/common-nighthawk/go-figure"
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-  "github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
 )
@@ -25,12 +21,8 @@ type AppConfig struct {
 }
 
 func readQuestion() string {
-  rl, err := readline.New("> ")
-  if err != nil {
-    panic(err)
-  }
+  rl, _ := readline.New("> ")
   defer rl.Close()
-
   rl.Config.FuncFilterInputRune = func(r rune) (rune, bool) {
     if r == readline.CharCtrlL {
       fmt.Print("\033[H\033[2J")
@@ -39,16 +31,11 @@ func readQuestion() string {
     }
     return r, true
   }
-
   for {
     line, err := rl.Readline()
-    if err != nil {
-      if err == readline.ErrInterrupt {
-        fmt.Println("\nExiting...")
-        os.Exit(0)
-      }
-      fmt.Println()
-      return ""
+    if err == readline.ErrInterrupt {
+      fmt.Println("\nExiting...")
+      os.Exit(0)
     }
     line = strings.TrimSpace(line)
     if line != "" {
@@ -57,172 +44,54 @@ func readQuestion() string {
   }
 }
 
-
-func selectAgent(client *openai.Client, usr *user.User) (agent.Agent, string, error) {
-  configs, err := agent.ListAgents(usr.Name)
-  if err != nil {
-    return nil, "", fmt.Errorf("cannot list agents: %w", err)
-  }
-  if len(configs) == 0 {
-    return nil, "", fmt.Errorf("no agents found for user %q", usr.Name)
-  }
-
-  fmt.Println("Please choose an agent:")
-  for i, cfg := range configs {
-    fmt.Printf("  %d) %s (model=%s, tools=%v)\n", i+1, cfg.Name, cfg.Model, cfg.ToolPaths)
-  }
-  fmt.Print("Enter number: ")
-  sel := readQuestion()
-  idx, err := strconv.Atoi(sel)
-  if err != nil || idx < 1 || idx > len(configs) {
-    return nil, "", fmt.Errorf("invalid selection")
-  }
-
-  chosen := configs[idx-1].Name
-
-	agentPath := filepath.Join("./configs",usr.Name, "agents", chosen + ".toml")
-  if err != nil {
-    return nil, "", fmt.Errorf("cannot resolve path for agent %q: %w", chosen, err)
-  }
-
-  a, err := agent.NewAgentFromConfig(client, agentPath)
-  if err != nil {
-    return nil, "", fmt.Errorf("failed to load agent %q: %w", chosen, err)
-  }
-  return a, agentPath, nil
-}
-
 func main() {
   tui.PrintLogo()
 
-	//Initial Loading and Setting Up the App 
   var cfg AppConfig
   if _, err := toml.DecodeFile("./configs/settings.toml", &cfg); err != nil {
     fmt.Fprintf(os.Stderr, "Failed to load settings.toml: %v\n", err)
-		//Need to Implement: In case settings.toml does not exist
-		//AppConfig
-		//create ./configs/settings.toml
     os.Exit(1)
   }
-	
-  // Load User
+
   usr, err := user.LoadUser(cfg.DefaultUser)
-
   if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load user config for %q: %v\n", cfg.DefaultUser, err)
-    //os.Exit(1)
+    fmt.Fprintf(os.Stderr, "Failed to load user %q: %v\n", cfg.DefaultUser, err)
+    os.Exit(1)
   }
-
-	usr.Print()
-
-	defaultAgentPath, err := usr.AgentPath(usr.DefaultAgent)
-	if err != nil {
-    fmt.Fprintf(os.Stderr, "%v\n", err)
-    //os.Exit(1)
-  }
-
-
+  usr.Print()
 
   client := openai.NewClient()
   clientPtr := &client
 
-	fmt.Println()
-	fmt.Println("Loading:", usr.DefaultAgent)
-	fig := figure.NewColorFigure(usr.DefaultAgent, "", "cyan", true)
-	fig.Print()
-	fmt.Println()
+  agentConfigPath := "./configs/jj/agents/myagent.toml"
+  fmt.Println("Loading agent from", agentConfigPath)
+  fig := figure.NewColorFigure("myagent", "", "cyan", true)
+  fig.Print()
+  fmt.Println()
 
-  var agentInstance agent.Agent
-  var agentConfigPath string
-
-	agentConfigPath = defaultAgentPath
-  //agentInstance, err = loadAgent(clientPtr, defaultAgentPath)
-
+  agentInstance, err := agent.NewAgentFromConfig(clientPtr, agentConfigPath)
   if err != nil {
-    fmt.Fprintf(os.Stderr, "Error loading default agent (%s): %v\n", defaultAgentPath, err)
-    agentInstance, agentConfigPath, err = selectAgent(clientPtr, usr)
-    if err != nil {
-      fmt.Fprintf(os.Stderr, "No agent loaded: %v\n", err)
-      os.Exit(1)
-    }
-  } else {
-    agentConfigPath = defaultAgentPath
+    fmt.Fprintf(os.Stderr, "Failed to load agent: %v\n", err)
+    os.Exit(1)
   }
 
-  //tui.PrintTools()
-
-
-	//REPL
   ctx := context.Background()
-
   for {
     question := readQuestion()
     parts := strings.Fields(question)
     if len(parts) == 0 {
       continue
     }
-
     switch strings.ToLower(parts[0]) {
-    case "help", "tools", "-t":
+    case "help", "tools":
       tui.PrintLogo()
-      //tui.PrintTools()
+			agentInstance.PrintTools()
+
+
       continue
     case "exit", "quit":
-      fmt.Print("Bye!\r\n")
+      fmt.Println("Bye!")
       return
-    case "list-agents", "list-agent", "list agent", "list agents":
-      configs, err := agent.ListAgents(usr.Name)
-      if err != nil {
-        fmt.Println("Error listing agents: Check your config folder")
-        continue
-      }
-      for _, cfg := range configs {
-        fmt.Println(cfg.Name)
-        fmt.Println(cfg.Model)
-        fmt.Println(cfg.ToolPaths)
-      }
-      continue
-    case "create agent", "create-agent":
-      fmt.Println("create agent")
-      agent.CreateAgent()
-      continue
-    case "load-agent":
-      if len(parts) < 2 {
-        fmt.Println("Usage: load-agent <path-to-toml>")
-        continue
-      }
-      newPath := parts[1]
-      //newAgent, err := loadAgent(clientPtr, newPath)
-
-  		newAgent, err := agent.NewAgentFromConfig(clientPtr, newPath)
-      if err != nil {
-        fmt.Printf("Failed to load agent: %v\n", err)
-        continue
-      }
-      agentInstance = newAgent
-      agentConfigPath = newPath
-      continue
-    case "unload-agent":
-      agentInstance = nil
-      agentConfigPath = ""
-      registry.Clear()
-      fmt.Println("Agent unloaded.")
-      continue
-    case "current-agent":
-      if agentInstance != nil {
-        fmt.Printf("Current agent loaded from: %s\n", agentConfigPath)
-      } else {
-        fmt.Println("No agent loaded.")
-      }
-      continue
-    case "tool-pack", "tool-packs":
-      tui.PrintToolPacks()
-      continue
-    }
-
-    if agentInstance == nil {
-      fmt.Println("No agent loaded. Use: load-agent <path-to-toml>")
-      continue
     }
 
     if err := agentInstance.SendMessage(ctx, question); err != nil {
