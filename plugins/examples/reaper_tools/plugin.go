@@ -64,7 +64,7 @@ func launchTool(scriptName string) error {
     return cmd.Run()
 }
 
-func LoadCustomScripts() []tools.ToolSpec {
+func LoadCustomScripts() []tools.Tool {
     if err := registerConfig(); err != nil {
         panic(err)
     }
@@ -73,13 +73,13 @@ func LoadCustomScripts() []tools.ToolSpec {
         panic(fmt.Errorf("failed to read %s: %w", reaperConfig.ScriptPath, err))
     }
 
-    var specs []tools.ToolSpec
+    var specs []tools.Tool
     for _, e := range entries {
         if e.IsDir() || !strings.HasSuffix(e.Name(), ".lua") {
             continue
         }
         name := strings.TrimSuffix(e.Name(), ".lua")
-        specs = append(specs, tools.ToolSpec{
+        specs = append(specs, tools.Tool{
             Name:        name,
             Description: fmt.Sprintf("Run custom Reaper script %q", name),
             Parameters:  openai.FunctionParameters{},

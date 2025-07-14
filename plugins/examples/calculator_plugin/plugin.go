@@ -12,7 +12,7 @@ const (
     packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
 )
 
-var AddTool = tools.ToolSpec{
+var AddTool = tools.Tool{
 	Name:        "add",
 	Description: "Add two numbers a and b",
 	Parameters: openai.FunctionParameters{
@@ -33,7 +33,7 @@ var AddTool = tools.ToolSpec{
 	},
 }
 
-var SubtractTool = tools.ToolSpec{
+var SubtractTool = tools.Tool{
 	Name:        "subtract",
 	Description: "Subtract b from a",
 	Parameters: openai.FunctionParameters{
@@ -54,7 +54,7 @@ var SubtractTool = tools.ToolSpec{
 		},
 	}
 
-	var MultiplyTool = tools.ToolSpec{
+	var MultiplyTool = tools.Tool{
 		Name:        "multiply",
 		Description: "Multiply a and b",
 		Parameters: openai.FunctionParameters{
@@ -75,7 +75,7 @@ var SubtractTool = tools.ToolSpec{
 		},
 	}
 
-	var DivideTool = tools.ToolSpec{
+	var DivideTool = tools.Tool{
 		Name:        "divide",
 		Description: "Divide a by b",
 		Parameters: openai.FunctionParameters{
@@ -101,8 +101,8 @@ var SubtractTool = tools.ToolSpec{
 
 
 // PluginSpecs is the symbol NewAgentFromConfig will look up and call.
-func PluginSpecs() []tools.ToolSpec {
-	return []tools.ToolSpec{
+func PluginSpecs() []tools.Tool {
+	return []tools.Tool{
 		AddTool,
 		SubtractTool,
 		MultiplyTool,
@@ -115,7 +115,7 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
-        Specs:   []tools.ToolSpec{ 
+        Tools:   []tools.Tool{ 
 					AddTool, 
 					SubtractTool,
 					MultiplyTool,

@@ -11,7 +11,7 @@ const (
     packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
 )
 
-var WeatherTool = tools.ToolSpec{
+var WeatherTool = tools.Tool{
 	Name:        "get_weather",
 	Description: "Get weather at the given location",
 	Parameters: openai.FunctionParameters{
@@ -33,8 +33,8 @@ func getWeather(location string) string {
 }
 
 // Export a function called PluginSpecs
-func PluginSpecs() []tools.ToolSpec {
-	return []tools.ToolSpec{ WeatherTool }
+func PluginSpecs() []tools.Tool {
+	return []tools.Tool{ WeatherTool }
 }
 
 func PluginPackage() tools.ToolPackage {
@@ -42,6 +42,6 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
-        Specs:   []tools.ToolSpec{ WeatherTool },
+        Tools:   []tools.Tool{ WeatherTool },
     }
 }

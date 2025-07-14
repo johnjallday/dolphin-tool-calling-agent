@@ -31,6 +31,7 @@ type DefaultAgent struct {
 	params openai.ChatCompletionNewParams 
 }
 
+
 // NewAgentFromConfig loads a TOML config, registers tools, and returns a configured Agent.
 func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error) {
    var cfg AgentConfig
@@ -47,6 +48,7 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
        Temperature: openai.Float(0),
        Seed:        openai.Int(0),
    }
+
 
 	for _, tp := range cfg.ToolPaths {
 			absP, err := filepath.Abs(tp)
@@ -65,24 +67,30 @@ func NewAgentFromConfig(client *openai.Client, configPath string) (Agent, error)
 							return nil, fmt.Errorf("invalid PluginPackage signature in %q", absP)
 					}
 					pkg := pkgFunc()
-					for _, spec := range pkg.Specs {
-							registry.RegisterSpec(spec)
+					for _, t := range pkg.Tools {
+							registry.RegisterSpec(t)
 					}
 					continue
 			}
 
-			// Fallback to old PluginSpecs
-			symSpecs, err := plug.Lookup("PluginSpecs")
-			if err != nil {
-					return nil, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
+			// Fallback to PluginSpecs (variable or function)
+			if symSpecs, err := plug.Lookup("PluginSpecs"); err == nil {
+					if specsPtr, ok := symSpecs.(*[]tools.Tool); ok {
+							for _, spec := range *specsPtr {
+									registry.RegisterSpec(spec)
+							}
+							continue
+					}
+					if specsFunc, ok := symSpecs.(func() []tools.Tool); ok {
+							for _, spec := range specsFunc() {
+									registry.RegisterSpec(spec)
+							}
+							continue
+					}
+					return nil, fmt.Errorf("invalid PluginSpecs type or signature in %q", absP)
 			}
-			specsFunc, ok := symSpecs.(func() []tools.ToolSpec)
-			if !ok {
-					return nil, fmt.Errorf("invalid PluginSpecs signature in %q", absP)
-			}
-			for _, spec := range specsFunc() {
-					registry.RegisterSpec(spec)
-			}
+
+			return nil, fmt.Errorf("no PluginPackage or PluginSpecs in %q", absP)
 	}
 
    // Dynamically load Go plugins for additional tools

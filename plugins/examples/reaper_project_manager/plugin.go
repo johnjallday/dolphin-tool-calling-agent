@@ -30,8 +30,8 @@ type ReaperConfig struct {
 
 var reaperConfig ReaperConfig
 
-// ToolSpec defines schema and executor for CreateNewProject.
-var CreateNewProjectTool = tools.ToolSpec{
+// Tool defines schema and executor for CreateNewProject.
+var CreateNewProjectTool = tools.Tool{
 	Name:        "create_new_project",
 	Description: "Create a new Reaper project with a name and bpm",
 	Parameters: openai.FunctionParameters{
@@ -145,9 +145,9 @@ func registerConfig() error {
 }
 
 
-func PluginSpecs() []tools.ToolSpec {
+func PluginSpecs() []tools.Tool {
 
-	return []tools.ToolSpec{ CreateNewProjectTool }
+	return []tools.Tool{ CreateNewProjectTool }
 }
 
 func PluginPackage() tools.ToolPackage {
@@ -155,6 +155,6 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
-        Specs:   []tools.ToolSpec{ CreateNewProjectTool },
+        Tools:   []tools.Tool{ CreateNewProjectTool },
     }
 }

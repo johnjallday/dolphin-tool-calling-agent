@@ -2,12 +2,12 @@ package tui
 
 import (
 	"fmt"
-	"os"
+	//"os"
 	"io/fs"
 	"path/filepath"
 
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
-	"github.com/jedib0t/go-pretty/v6/table"
+	//"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
+	//"github.com/jedib0t/go-pretty/v6/table"
 )
 
 func PrintLogo() {
@@ -19,18 +19,6 @@ func PrintLogo() {
 }
 
 
-func PrintTools() {
-	toolsSpecs := registry.Specs()
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Name", "Description"})
-	for _, ts := range toolsSpecs {
-		coloredName := "\033[1;32m" + ts.Name + "\033[0m"
-		coloredDesc := "\033[36m" + ts.Description + "\033[0m"
-		t.AppendRow(table.Row{coloredName, coloredDesc})
-	}
-	t.Render()
-}
 
 
 

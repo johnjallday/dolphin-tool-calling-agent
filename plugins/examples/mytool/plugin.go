@@ -12,8 +12,8 @@ const (
     packLink    = "https://github.com/johnjallday/dolphin-tool-calling-agent/"
 )
 
-	// Define your ToolSpec(s)
-var HelloTool = tools.ToolSpec{
+	// Define your Tool(s)
+var HelloTool = tools.Tool{
 	Name:        "say_hello",
 	Description: "Returns a greeting",
 	Parameters:  openai.FunctionParameters{ "type":"object",
@@ -24,8 +24,8 @@ var HelloTool = tools.ToolSpec{
 }
 
 // Export a function called PluginSpecs
-func PluginSpecs() []tools.ToolSpec {
-	return []tools.ToolSpec{ HelloTool }
+func PluginSpecs() []tools.Tool {
+	return []tools.Tool{ HelloTool }
 }
 
 func PluginPackage() tools.ToolPackage {
@@ -33,6 +33,6 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
-        Specs:   []tools.ToolSpec{ HelloTool },
+        Tools:   []tools.Tool{ HelloTool },
     }
 }

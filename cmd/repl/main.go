@@ -149,7 +149,7 @@ func main() {
     agentConfigPath = defaultAgentPath
   }
 
-  tui.PrintTools()
+  //tui.PrintTools()
 
 
 	//REPL
@@ -165,7 +165,7 @@ func main() {
     switch strings.ToLower(parts[0]) {
     case "help", "tools", "-t":
       tui.PrintLogo()
-      tui.PrintTools()
+      //tui.PrintTools()
       continue
     case "exit", "quit":
       fmt.Print("Bye!\r\n")

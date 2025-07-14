@@ -44,7 +44,7 @@ func CheckOutToolPack() {
 
 	fmt.Println(sym)
 
-  specsFunc, ok := sym.(func() []ToolSpec)
+  specsFunc, ok := sym.(func() []Tool)
 	if !ok{
 		fmt.Println("yikes")
 		return

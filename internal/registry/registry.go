@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	// specs accumulates all registered ToolSpecs.
-	specs []tools.ToolSpec
+	// specs accumulates all registered Tool.
+	specs []tools.Tool
 	// handlers maps tool names to executor wrappers.
 	handlers = make(map[string]func(openai.ChatCompletionMessageToolCall, *openai.ChatCompletionNewParams))
 )
 
-// Initialize registers all ToolSpecs into the ChatCompletion params.
+// Initialize registers all Tool into the ChatCompletion params.
 func Initialize(params *openai.ChatCompletionNewParams) {
 	for _, ts := range specs {
 		params.Tools = append(params.Tools, openai.ChatCompletionToolParam{
@@ -30,7 +30,7 @@ func Initialize(params *openai.ChatCompletionNewParams) {
 	}
 }
 
-func RegisterSpec(ts tools.ToolSpec) {
+func RegisterSpec(ts tools.Tool) {
 	specs = append(specs, ts)
 	handlers[ts.Name] = func(tc openai.ChatCompletionMessageToolCall, params *openai.ChatCompletionNewParams) {
 		var args map[string]interface{}
@@ -48,14 +48,9 @@ func RegisterSpec(ts tools.ToolSpec) {
 	}
 }
 
-
 // Handlers returns the mapping of function names to handler functions.
 func Handlers() map[string]func(openai.ChatCompletionMessageToolCall, *openai.ChatCompletionNewParams) {
 	return handlers
-}
-
-func Specs() []tools.ToolSpec {
-	return specs
 }
 
 

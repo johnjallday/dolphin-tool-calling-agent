@@ -11,7 +11,7 @@ const (
 	packlink		= "github.com/johnjallday/dolphin-tool-calling-agent/plugins/dolphin_tools"
 )
 
-var CreateAgent = tools.ToolSpec{
+var CreateAgent = tools.Tool{
 	Name:				""
 }
 
@@ -26,5 +26,7 @@ var CreateAgent = tools.ToolSpec{
 "If DefaultAgent is in UserConfig"
 "Load DefaultAgent"
 "Load Tools"
+
+"Load"
 
 
