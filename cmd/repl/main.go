@@ -20,6 +20,12 @@ type AppConfig struct {
   DefaultUser string `toml:"default_user"`
 }
 
+type AgentConfig struct {
+  Name      string   `toml:"name"`
+  Model     string   `toml:"model"`
+  ToolPaths []string `toml:"tool_path"`
+}
+
 func readQuestion() string {
   rl, _ := readline.New("> ")
   defer rl.Close()
@@ -37,9 +43,8 @@ func readQuestion() string {
       fmt.Println("\nExiting...")
       os.Exit(0)
     }
-    line = strings.TrimSpace(line)
-    if line != "" {
-      return line
+    if s := strings.TrimSpace(line); s != "" {
+      return s
     }
   }
 }
@@ -47,33 +52,41 @@ func readQuestion() string {
 func main() {
   tui.PrintLogo()
 
-  var cfg AppConfig
-  if _, err := toml.DecodeFile("./configs/settings.toml", &cfg); err != nil {
+  var appCfg AppConfig
+  if _, err := toml.DecodeFile("configs/settings.toml", &appCfg); err != nil {
     fmt.Fprintf(os.Stderr, "Failed to load settings.toml: %v\n", err)
     os.Exit(1)
   }
 
-  usr, err := user.LoadUser(cfg.DefaultUser)
+  usr, err := user.LoadUser(appCfg.DefaultUser)
   if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load user %q: %v\n", cfg.DefaultUser, err)
+    fmt.Fprintf(os.Stderr, "Failed to load user %q: %v\n", appCfg.DefaultUser, err)
     os.Exit(1)
   }
   usr.Print()
 
   client := openai.NewClient()
-  clientPtr := &client
 
-  agentConfigPath := "./configs/jj/agents/myagent.toml"
+  agentConfigPath := "configs/jj/agents/myagent.toml"
   fmt.Println("Loading agent from", agentConfigPath)
-  fig := figure.NewColorFigure("myagent", "", "cyan", true)
+
+  var agentCfg AgentConfig
+  if _, err := toml.DecodeFile(agentConfigPath, &agentCfg); err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to load agent config: %v\n", err)
+    os.Exit(1)
+  }
+
+  fig := figure.NewColorFigure(agentCfg.Name, "", "cyan", true)
   fig.Print()
   fmt.Println()
 
-  agentInstance, err := agent.NewAgentFromConfig(clientPtr, agentConfigPath)
+  agentInstance, err := agent.NewAgent(&client, agentCfg.Name, agentCfg.Model, agentCfg.ToolPaths)
   if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load agent: %v\n", err)
+    fmt.Fprintf(os.Stderr, "Failed to init agent: %v\n", err)
     os.Exit(1)
   }
+
+  agentInstance.PrintTools()
 
   ctx := context.Background()
   for {
@@ -85,15 +98,12 @@ func main() {
     switch strings.ToLower(parts[0]) {
     case "help", "tools":
       tui.PrintLogo()
-			agentInstance.PrintTools()
-
-
+      agentInstance.PrintTools()
       continue
     case "exit", "quit":
       fmt.Println("Bye!")
       return
     }
-
     if err := agentInstance.SendMessage(ctx, question); err != nil {
       fmt.Printf("Error: %v\n", err)
     }
