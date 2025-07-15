@@ -2,17 +2,17 @@ package user
 
 import (
   "fmt"
-  "os"
   "path/filepath"
-
+	"github.com/fatih/color"
   "github.com/BurntSushi/toml"
-  "github.com/fatih/color"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
+  "github.com/openai/openai-go"
 )
 
 type AgentMeta struct {
-  Name string
-  Path string
+  Name      string   `toml:"name"`
+  Model     string   `toml:"model"`
+  ToolPaths []string `toml:"tool_path"`
 }
 
 type User struct {
@@ -21,48 +21,30 @@ type User struct {
   DefaultAgent *agent.Agent
 }
 
-func loadAgent(meta AgentMeta) (*agent.Agent, error) {
-  var ag agent.Agent
-  if _, err := toml.DecodeFile(meta.Path, &ag); err != nil {
-    return nil, fmt.Errorf("load agent %q: %w", meta.Name, err)
+func NewUser(userID string, client *openai.Client) (*User, error) {
+  path := filepath.Join("configs", "users", userID+".toml")
+  var raw struct {
+    Name         string      `toml:"name"`
+    DefaultAgent string      `toml:"default_agent"`
+    Agents       []AgentMeta `toml:"agents"`
   }
-  return &ag, nil
-}
-
-func NewUser(userId string) (*User, error) {
-  userDir := filepath.Join("configs", userId)
-  os.MkdirAll(userDir, 0755)
-  cfgPath := filepath.Join(userDir, "user_setting.toml")
-  if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-    f, _ := os.Create(cfgPath); defer f.Close()
-    f.WriteString("default_agent = \"\"\n")
+  if _, err := toml.DecodeFile(path, &raw); err != nil {
+    return nil, fmt.Errorf("load user %q: %w", userID, err)
   }
 
-  var rawCfg struct{ DefaultName string `toml:"default_agent"` }
-  toml.DecodeFile(cfgPath, &rawCfg)
-
-  agentsDir := filepath.Join(userDir, "agents")
-  os.MkdirAll(agentsDir, 0755)
-  entries, _ := os.ReadDir(agentsDir)
-
-  u := &User{Name: userId}
-  for _, e := range entries {
-    if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
-      continue
-    }
-    name := e.Name()[:len(e.Name())-5]
-    path := filepath.Join(agentsDir, e.Name())
-    meta := AgentMeta{Name: name, Path: path}
-    u.Agents = append(u.Agents, meta)
-    if name == rawCfg.DefaultName {
-      ag, err := loadAgent(meta)
+  u := &User{Name: raw.Name, Agents: raw.Agents}
+  for _, meta := range raw.Agents {
+		fmt.Println(meta.Name)
+		fmt.Println(meta.ToolPaths)
+    if meta.Name == raw.DefaultAgent {
+      ag, err := agent.NewAgent(client, meta.Name, meta.Model, meta.ToolPaths)
       if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("init default agent %q: %w", meta.Name, err)
       }
       u.DefaultAgent = ag
+      break
     }
   }
-
   return u, nil
 }
 
