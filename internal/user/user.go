@@ -3,10 +3,10 @@ package user
 import (
   "fmt"
   "path/filepath"
-	"github.com/fatih/color"
+
   "github.com/BurntSushi/toml"
+  "github.com/fatih/color"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-  "github.com/openai/openai-go"
 )
 
 type AgentMeta struct {
@@ -21,7 +21,7 @@ type User struct {
   DefaultAgent *agent.Agent
 }
 
-func NewUser(userID string, client *openai.Client) (*User, error) {
+func NewUser(userID string) (*User, error) {
   path := filepath.Join("configs", "users", userID+".toml")
   var raw struct {
     Name         string      `toml:"name"`
@@ -34,10 +34,8 @@ func NewUser(userID string, client *openai.Client) (*User, error) {
 
   u := &User{Name: raw.Name, Agents: raw.Agents}
   for _, meta := range raw.Agents {
-		fmt.Println(meta.Name)
-		fmt.Println(meta.ToolPaths)
     if meta.Name == raw.DefaultAgent {
-      ag, err := agent.NewAgent(client, meta.Name, meta.Model, meta.ToolPaths)
+      ag, err := agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
       if err != nil {
         return nil, fmt.Errorf("init default agent %q: %w", meta.Name, err)
       }

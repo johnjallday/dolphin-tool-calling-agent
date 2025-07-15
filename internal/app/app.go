@@ -9,11 +9,9 @@ import (
   "strconv"
   "strings"
 
-
   "github.com/BurntSushi/toml"
   "github.com/chzyer/readline"
   "github.com/common-nighthawk/go-figure"
-  "github.com/openai/openai-go"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
@@ -29,10 +27,9 @@ type App interface {
 }
 
 type DefaultApp struct {
-  cfg    AppConfig
-  usr    *user.User
-  ag     *agent.Agent
-  client openai.Client
+  cfg AppConfig
+  usr *user.User
+  ag  *agent.Agent
 }
 
 func NewApp() App { return &DefaultApp{} }
@@ -42,11 +39,9 @@ func (a *DefaultApp) Init(configPath string) error {
     return fmt.Errorf("load app config: %w", err)
   }
 
-  a.client = openai.NewClient()
-
   var err error
   if a.cfg.DefaultUser != "" {
-    a.usr, err = user.NewUser(a.cfg.DefaultUser, &a.client)
+    a.usr, err = user.NewUser(a.cfg.DefaultUser)
     if err != nil {
       fmt.Fprintf(os.Stderr, "Default user %q not found.\n", a.cfg.DefaultUser)
       a.usr = a.selectUser()
@@ -59,7 +54,7 @@ func (a *DefaultApp) Init(configPath string) error {
     a.ag = a.usr.DefaultAgent
   } else {
     meta := a.selectAgent()
-    a.ag, err = agent.NewAgent(&a.client, meta.Name, meta.Model, meta.ToolPaths)
+    a.ag, err = agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
     if err != nil {
       return fmt.Errorf("init agent: %w", err)
     }
@@ -92,15 +87,16 @@ func (a *DefaultApp) Run(ctx context.Context) error {
 }
 
 func (a *DefaultApp) selectUser() *user.User {
-  userDir := "configs/users"
-  files, err := os.ReadDir(userDir)
+  files, err := os.ReadDir("configs/users")
   if err != nil {
     fmt.Fprintf(os.Stderr, "Failed to list users: %v\n", err)
     os.Exit(1)
   }
   var names []string
   for _, f := range files {
-    if f.IsDir() || filepath.Ext(f.Name()) != ".toml" { continue }
+    if f.IsDir() || filepath.Ext(f.Name()) != ".toml" {
+      continue
+    }
     names = append(names, strings.TrimSuffix(f.Name(), ".toml"))
   }
 
@@ -113,7 +109,7 @@ func (a *DefaultApp) selectUser() *user.User {
     fmt.Print("Select user by number: ")
     input, _ := reader.ReadString('\n')
     if idx, err := strconv.Atoi(strings.TrimSpace(input)); err == nil && idx > 0 && idx <= len(names) {
-      usr, err := user.NewUser(names[idx-1], &a.client)
+      usr, err := user.NewUser(names[idx-1])
       if err != nil {
         fmt.Printf("Failed to load user: %v\n", err)
         continue
