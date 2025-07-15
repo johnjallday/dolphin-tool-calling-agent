@@ -6,7 +6,7 @@ import (
   "fmt"
   "log"
   "os"
-  "path/filepath"
+  //"path/filepath"
   "strconv"
   "strings"
 
@@ -52,10 +52,9 @@ func main() {
   if usr.DefaultAgent != nil {
     agentInstance = usr.DefaultAgent
   } else {
-    name := selectAgent(usr)
-    cfgPath := filepath.Join("configs", appCfg.DefaultUser, "agents", name+".toml")
+    meta := selectAgent(usr)
     var agentCfg AgentConfig
-    if _, err := toml.DecodeFile(cfgPath, &agentCfg); err != nil {
+    if _, err := toml.DecodeFile(meta.Path, &agentCfg); err != nil {
       log.Fatalf("Failed to load agent config: %v", err)
     }
     agentInstance, err = agent.NewAgent(&client, agentCfg.Name, agentCfg.Model, agentCfg.ToolPaths)
@@ -91,10 +90,11 @@ func main() {
   }
 }
 
-func selectAgent(usr *user.User) string {
+
+func selectAgent(usr *user.User) user.AgentMeta {
   fmt.Println("Available agents:")
-  for i, name := range usr.Agents {
-    fmt.Printf("[%d] %s\n", i+1, name)
+  for i, meta := range usr.Agents {
+    fmt.Printf("[%d] %s\n", i+1, meta.Name)
   }
   fmt.Print("Select agent by number: ")
   reader := bufio.NewReader(os.Stdin)
