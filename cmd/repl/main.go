@@ -1,9 +1,13 @@
 package main
 
 import (
+  "bufio"
   "context"
   "fmt"
+  "log"
   "os"
+  "path/filepath"
+  "strconv"
   "strings"
 
   "github.com/chzyer/readline"
@@ -26,6 +30,84 @@ type AgentConfig struct {
   ToolPaths []string `toml:"tool_path"`
 }
 
+func main() {
+  tui.PrintLogo()
+
+  var appCfg AppConfig
+  if _, err := toml.DecodeFile("configs/app_setting.toml", &appCfg); err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to load app setting: %v\n", err)
+    os.Exit(1)
+  }
+
+  usr, err := user.NewUser(appCfg.DefaultUser)
+  if err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to load user %q: %v\n", appCfg.DefaultUser, err)
+    os.Exit(1)
+  }
+  usr.Print()
+
+  client := openai.NewClient()
+  var agentInstance *agent.Agent
+
+  if usr.DefaultAgent != nil {
+    agentInstance = usr.DefaultAgent
+  } else {
+    name := selectAgent(usr)
+    cfgPath := filepath.Join("configs", appCfg.DefaultUser, "agents", name+".toml")
+    var agentCfg AgentConfig
+    if _, err := toml.DecodeFile(cfgPath, &agentCfg); err != nil {
+      log.Fatalf("Failed to load agent config: %v", err)
+    }
+    agentInstance, err = agent.NewAgent(&client, agentCfg.Name, agentCfg.Model, agentCfg.ToolPaths)
+    if err != nil {
+      log.Fatalf("Failed to init agent: %v", err)
+    }
+  }
+
+  fig := figure.NewColorFigure(agentInstance.Name, "", "cyan", true)
+  fig.Print()
+  fmt.Println()
+  agentInstance.PrintTools()
+
+  ctx := context.Background()
+  for {
+    line := readQuestion()
+    parts := strings.Fields(line)
+    if len(parts) == 0 {
+      continue
+    }
+    switch strings.ToLower(parts[0]) {
+    case "help", "tools":
+      tui.PrintLogo()
+      agentInstance.PrintTools()
+    case "exit", "quit":
+      fmt.Println("Bye!")
+      return
+    default:
+      if err := agentInstance.SendMessage(ctx, line); err != nil {
+        fmt.Printf("Error: %v\n", err)
+      }
+    }
+  }
+}
+
+func selectAgent(usr *user.User) string {
+  fmt.Println("Available agents:")
+  for i, name := range usr.Agents {
+    fmt.Printf("[%d] %s\n", i+1, name)
+  }
+  fmt.Print("Select agent by number: ")
+  reader := bufio.NewReader(os.Stdin)
+  for {
+    input, _ := reader.ReadString('\n')
+    n, err := strconv.Atoi(strings.TrimSpace(input))
+    if err == nil && n > 0 && n <= len(usr.Agents) {
+      return usr.Agents[n-1]
+    }
+    fmt.Print("Invalid choice, try again: ")
+  }
+}
+
 func readQuestion() string {
   rl, _ := readline.New("> ")
   defer rl.Close()
@@ -45,67 +127,6 @@ func readQuestion() string {
     }
     if s := strings.TrimSpace(line); s != "" {
       return s
-    }
-  }
-}
-
-func main() {
-  tui.PrintLogo()
-
-  var appCfg AppConfig
-  if _, err := toml.DecodeFile("configs/settings.toml", &appCfg); err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load settings.toml: %v\n", err)
-    os.Exit(1)
-  }
-
-  usr, err := user.LoadUser(appCfg.DefaultUser)
-  if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load user %q: %v\n", appCfg.DefaultUser, err)
-    os.Exit(1)
-  }
-  usr.Print()
-
-  client := openai.NewClient()
-
-  agentConfigPath := "configs/jj/agents/myagent.toml"
-  fmt.Println("Loading agent from", agentConfigPath)
-
-  var agentCfg AgentConfig
-  if _, err := toml.DecodeFile(agentConfigPath, &agentCfg); err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to load agent config: %v\n", err)
-    os.Exit(1)
-  }
-
-  fig := figure.NewColorFigure(agentCfg.Name, "", "cyan", true)
-  fig.Print()
-  fmt.Println()
-
-  agentInstance, err := agent.NewAgent(&client, agentCfg.Name, agentCfg.Model, agentCfg.ToolPaths)
-  if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to init agent: %v\n", err)
-    os.Exit(1)
-  }
-
-  agentInstance.PrintTools()
-
-  ctx := context.Background()
-  for {
-    question := readQuestion()
-    parts := strings.Fields(question)
-    if len(parts) == 0 {
-      continue
-    }
-    switch strings.ToLower(parts[0]) {
-    case "help", "tools":
-      tui.PrintLogo()
-      agentInstance.PrintTools()
-      continue
-    case "exit", "quit":
-      fmt.Println("Bye!")
-      return
-    }
-    if err := agentInstance.SendMessage(ctx, question); err != nil {
-      fmt.Printf("Error: %v\n", err)
     }
   }
 }

@@ -103,3 +103,11 @@ func (a *Agent) dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall) 
 func (a *Agent) PrintTools() {
     a.Registry.PrintTools()
 }
+
+func (a *Agent) Close() {
+    a.Name = ""
+    a.Model = ""
+    a.params = openai.ChatCompletionNewParams{}
+    a.Registry = nil
+    a.client = nil
+}
