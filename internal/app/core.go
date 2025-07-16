@@ -19,13 +19,12 @@ type App interface {
   Init() error
   Users() []string
 	CurrentUser() *user.User
-  //SelectUser(name string) error
 	CurrentAgent() *agent.Agent
   SendMessage(context.Context, string) error
+	LoadUser(username string) error
+	LoadAgent(agentName string) error
+	UnloadUser() error
+	UnloadAgent() error
   //Agents() []AgentMeta
-  //SelectAgent(meta AgentMeta) error
-  //CurrentUser() string
-  //CurrentAgent() AgentMeta
   //Tools() []ToolInfo
-  //Send(ctx context.Context, prompt string) (string, error)
 }

@@ -108,6 +108,10 @@ func (a *Agent) Close() {
 }
 
 func (a *Agent) Print() {
+	if a.Name == "<none>" {
+    fmt.Println("No agent selected")
+    return
+  }
   cLabel := color.New(color.FgCyan, color.Bold)
   cValue := color.New(color.FgWhite)
   cList  := color.New(color.FgMagenta, color.Bold)

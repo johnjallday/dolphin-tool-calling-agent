@@ -19,10 +19,7 @@ func main() {
     os.Exit(1)
   }
 
-  fmt.Println("Loading Default User")
-  fmt.Println(a.Users())
   tui.PrintLogo()
-
   rl, err := readline.New("> ")
   if err != nil {
     fmt.Fprintln(os.Stderr, "readline error:", err)
@@ -30,27 +27,72 @@ func main() {
   }
   defer rl.Close()
 
+  a.CurrentUser().Print()
   for {
     line, err := rl.Readline()
     if err != nil {
       break
     }
-    cmd := strings.TrimSpace(line)
-    switch strings.ToLower(cmd) {
-    case "current agent", "current_agent":
+    raw := strings.TrimSpace(line)
+    lower := strings.ToLower(raw)
+    fields := strings.Fields(raw)
+
+
+    switch {
+
+		case len(fields) >= 2 && strings.ToLower(fields[0]) == "unload" && strings.ToLower(fields[1]) == "agent":
+			if err := a.UnloadAgent(); err != nil {
+				fmt.Fprintln(os.Stderr, "unload agent error:", err)
+			} else {
+				fmt.Println("Agent unloaded")
+			}
+
+		case len(fields) >= 2 && strings.ToLower(fields[0]) == "unload" && strings.ToLower(fields[1]) == "user":
+			if err := a.UnloadUser(); err != nil {
+				fmt.Fprintln(os.Stderr, "unload user error:", err)
+			} else {
+				fmt.Println("User and agent unloaded")
+			}
+    case len(fields) >= 2 && strings.ToLower(fields[0]) == "load" && strings.ToLower(fields[1]) == "user":
+      if len(fields) < 3 {
+        fmt.Println("Usage: load user <username>")
+        continue
+      }
+      username := fields[2]
+      if err := a.LoadUser(username); err != nil {
+        fmt.Fprintln(os.Stderr, "load user error:", err)
+      } else {
+        fmt.Println("Loaded user:", username)
+				a.CurrentAgent().Print()
+      }
+
+		// inside your main() REPL switch, above the "current agent" case
+		case len(fields) >= 2 && strings.ToLower(fields[0]) == "load" && strings.ToLower(fields[1]) == "agent":
+			if len(fields) < 3 {
+				fmt.Println("Usage: load agent <agentName>")
+				continue
+			}
+			agentName := fields[2]
+			if err := a.LoadAgent(agentName); err != nil {
+				fmt.Fprintln(os.Stderr, "load agent error:", err)
+			} else {
+				fmt.Println("Loaded agent:", agentName)
+				a.CurrentAgent().Print()
+			}
+    case lower == "current agent" || lower == "current_agent":
       a.CurrentAgent().Print()
-    case "current user", "current_user":
+    case lower == "current user" || lower == "current_user" || lower == "agents":
       a.CurrentUser().Print()
-    case "users":
+    case lower == "users":
       fmt.Println(a.Users())
-    case "help":
+    case lower == "help":
       tui.PrintLogo()
-    case "exit", "quit":
+    case lower == "exit" || lower == "quit":
       fmt.Println("Bye!")
       return
     default:
-      if cmd != "" {
-        if err := a.SendMessage(ctx, cmd); err != nil {
+      if raw != "" {
+        if err := a.SendMessage(ctx, raw); err != nil {
           fmt.Fprintln(os.Stderr, "send error:", err)
         }
       }

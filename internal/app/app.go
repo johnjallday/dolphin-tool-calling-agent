@@ -9,6 +9,7 @@ import (
   "github.com/BurntSushi/toml"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
 )
 
 type AppConfig struct {
@@ -53,6 +54,7 @@ func (a *DefaultApp) Init() error {
 
   if cfg.DefaultUser == "" {
     fmt.Errorf("default_user not set in app_setting.toml")
+		fmt.Println("no DefaultUser Set")
 		return nil
   }
 
@@ -83,26 +85,82 @@ func (a *DefaultApp) Users() []string {
   return names
 }
 
+// LoadUser loads the user TOML and then loads the default agent.
 func (a *DefaultApp) LoadUser(username string) error {
-  fn := filepath.Join("configs", "users", username+".toml")
+  dir := "configs/users"
+  entries, err := os.ReadDir(dir)
+  if err != nil {
+    return fmt.Errorf("read users directory: %w", err)
+  }
+
   var tmp struct {
     Name             string           `toml:"name"`
     DefaultAgentName string           `toml:"default_agent"`
     Agents           []user.AgentMeta `toml:"agents"`
   }
-  if _, err := toml.DecodeFile(fn, &tmp); err != nil {
-    return fmt.Errorf("load user %q: %w", username, err)
+  found := false
+  for _, e := range entries {
+    if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
+      continue
+    }
+    path := filepath.Join(dir, e.Name())
+    if _, err := toml.DecodeFile(path, &tmp); err == nil && tmp.Name == username {
+      found = true
+      break
+    }
+  }
+  if !found {
+    return fmt.Errorf("user %q not found in %s", username, dir)
   }
 
+  a.currentUser = &user.User{
+    Name:         tmp.Name,
+    Agents:       tmp.Agents,
+    DefaultAgent: nil, // will be set in LoadAgent
+  }
+
+  // Initialize the app-level currentAgent
+  return a.LoadAgent(tmp.DefaultAgentName)
+}
+
+func (a *DefaultApp) CurrentUser() *user.User {
+    if a.currentUser == nil {
+        return &user.User{
+            Name:         "<none>",
+            DefaultAgent: nil,
+            Agents:       nil,
+        }
+    }
+    return a.currentUser
+}
+
+func (a *DefaultApp) CurrentAgent() *agent.Agent {
+  if a.currentAgent == nil {
+    return &agent.Agent{
+      Name:     "<none>",
+      Model:    "<none>",
+      Registry: registry.NewToolRegistry(),
+    }
+  }
+  return a.currentAgent
+
+}
+
+// LoadAgent selects one of the currentUser’s agents by name and sets it to currentAgent.
+func (a *DefaultApp) LoadAgent(agentName string) error {
+  if a.currentUser == nil {
+    return fmt.Errorf("no user loaded")
+  }
   var meta *user.AgentMeta
-  for i := range tmp.Agents {
-    if tmp.Agents[i].Name == tmp.DefaultAgentName {
-      meta = &tmp.Agents[i]
+  for i := range a.currentUser.Agents {
+    if a.currentUser.Agents[i].Name == agentName {
+      meta = &a.currentUser.Agents[i]
       break
     }
   }
   if meta == nil {
-    return fmt.Errorf("default agent %q not found in %q", tmp.DefaultAgentName, username)
+    fmt.Println("agent %q not found for user %q", agentName, a.currentUser.Name)
+    return nil
   }
 
   ag, err := agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
@@ -110,16 +168,28 @@ func (a *DefaultApp) LoadUser(username string) error {
     return fmt.Errorf("init agent %q: %w", meta.Name, err)
   }
 
-  a.currentUser = &user.User{
-    Name:         tmp.Name,
-    Agents:       tmp.Agents,
-    DefaultAgent: ag,
-  }
+  a.currentAgent = ag
+  // also update the default in the user struct if desired
+  a.currentUser.DefaultAgent = ag
   return nil
 }
 
-func (a *DefaultApp) CurrentUser() *user.User    { return a.currentUser }
-func (a *DefaultApp) CurrentAgent() *agent.Agent { return a.currentAgent }
+func (a *DefaultApp) UnloadAgent() error {
+  if a.currentAgent == nil {
+    return fmt.Errorf("no agent loaded")
+  }
+  a.currentAgent = nil
+  return nil
+}
+
+func (a *DefaultApp) UnloadUser() error {
+  if a.currentUser == nil {
+    return fmt.Errorf("no user loaded")
+  }
+  a.currentUser = nil
+  a.currentAgent = nil
+  return nil
+}
 
 func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
   if a.currentAgent == nil {
