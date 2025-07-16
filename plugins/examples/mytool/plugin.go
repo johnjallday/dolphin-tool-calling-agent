@@ -23,11 +23,7 @@ var HelloTool = tools.Tool{
 	},
 }
 
-// Export a function called PluginSpecs
-func PluginSpecs() []tools.Tool {
-	return []tools.Tool{ HelloTool }
-}
-
+// Exposes tools
 func PluginPackage() tools.ToolPackage {
     return tools.ToolPackage{
 				Name:		 packName,

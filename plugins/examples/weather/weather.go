@@ -32,11 +32,7 @@ func getWeather(location string) string {
 	return "Sunny, 25°C"
 }
 
-// Export a function called PluginSpecs
-func PluginSpecs() []tools.Tool {
-	return []tools.Tool{ WeatherTool }
-}
-
+//exposes the plugin to dolphin-tool-calling-agent
 func PluginPackage() tools.ToolPackage {
     return tools.ToolPackage{
 				Name:		 packName,

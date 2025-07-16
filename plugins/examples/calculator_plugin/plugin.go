@@ -100,15 +100,7 @@ var SubtractTool = tools.Tool{
 	}
 
 
-// PluginSpecs is the symbol NewAgentFromConfig will look up and call.
-func PluginSpecs() []tools.Tool {
-	return []tools.Tool{
-		AddTool,
-		SubtractTool,
-		MultiplyTool,
-		DivideTool,
-	}
-}
+
 
 func PluginPackage() tools.ToolPackage {
     return tools.ToolPackage{

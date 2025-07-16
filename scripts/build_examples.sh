@@ -4,8 +4,6 @@ go build -buildmode=plugin -o ./plugins/calculator.so ./plugins/examples/calcula
 echo "calculator build complete"
 go build -buildmode=plugin -o ./plugins/mytool.so ./plugins/examples/mytool
 echo "mytool build complete"
-go build -buildmode=plugin -o ./plugins/reaper_tools.so ./plugins/examples/reaper_tools
-echo "reaper_tool build complete"
 go build -buildmode=plugin -o ./plugins/weather.so ./plugins/examples/weather
 echo "weather build complete"
 go build -buildmode=plugin -o ./plugins/reaper_project_manager/reaper_project_manager.so ./plugins/examples/reaper_project_manager

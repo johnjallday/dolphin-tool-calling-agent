@@ -66,7 +66,6 @@ func main() {
 				a.CurrentAgent().Print()
       }
 
-		// inside your main() REPL switch, above the "current agent" case
 		case len(fields) >= 2 && strings.ToLower(fields[0]) == "load" && strings.ToLower(fields[1]) == "agent":
 			if len(fields) < 3 {
 				fmt.Println("Usage: load agent <agentName>")
