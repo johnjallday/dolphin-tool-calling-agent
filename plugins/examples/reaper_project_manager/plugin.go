@@ -108,7 +108,7 @@ func CreateNewProject(name string, bpm int) (string, error) {
 }
 
 func registerConfig() error {
-	configPath := "./user/tools/reaper_project_manager/settings.toml"
+	configPath := "./plugins/reaper_project_manager/settings.toml"
 	absPath, err := filepath.Abs(configPath)
 	if err != nil {
 		return fmt.Errorf("could not resolve settings.toml path: %w", err)

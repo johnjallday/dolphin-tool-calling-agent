@@ -191,6 +191,11 @@ func (a *DefaultApp) UnloadUser() error {
   return nil
 }
 
+func (a *DefaultApp) Tools() error {
+	a.currentAgent.PrintTools()
+	return nil
+}
+
 func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
   if a.currentAgent == nil {
     return fmt.Errorf("no agent loaded")

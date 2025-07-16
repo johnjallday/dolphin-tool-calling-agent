@@ -79,6 +79,8 @@ func main() {
 				fmt.Println("Loaded agent:", agentName)
 				a.CurrentAgent().Print()
 			}
+		case lower == "tools":
+			a.CurrentAgent().PrintTools()
     case lower == "current agent" || lower == "current_agent":
       a.CurrentAgent().Print()
     case lower == "current user" || lower == "current_user" || lower == "agents":

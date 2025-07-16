@@ -25,6 +25,7 @@ type App interface {
 	LoadAgent(agentName string) error
 	UnloadUser() error
 	UnloadAgent() error
+	Tools() error
   //Agents() []AgentMeta
   //Tools() []ToolInfo
 }
