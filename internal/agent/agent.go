@@ -5,6 +5,9 @@ import (
   "fmt"
   "path/filepath"
   "plugin"
+	"sort"
+
+  "github.com/fatih/color"
 
   "github.com/openai/openai-go"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
@@ -102,4 +105,25 @@ func (a *Agent) Close() {
   a.Model = ""
   a.params = openai.ChatCompletionNewParams{}
   a.Registry = nil
+}
+
+func (a *Agent) Print() {
+  cLabel := color.New(color.FgCyan, color.Bold)
+  cValue := color.New(color.FgWhite)
+  cList  := color.New(color.FgMagenta, color.Bold)
+  cItem  := color.New(color.FgGreen)
+
+  cLabel.Print("Agent: "); cValue.Println(a.Name)
+  cLabel.Print("Model: "); cValue.Println(a.Model)
+
+  cList.Println("Registered Tools:")
+  handlers := a.Registry.Handlers()
+  names := make([]string, 0, len(handlers))
+  for name := range handlers {
+    names = append(names, name)
+  }
+  sort.Strings(names)
+  for _, name := range names {
+    cItem.Println("  - " + name)
+  }
 }

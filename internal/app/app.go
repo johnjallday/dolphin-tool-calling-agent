@@ -1,19 +1,13 @@
 package app
 
 import (
-  "bufio"
-  "context"
   "fmt"
   "os"
   "path/filepath"
-  "strconv"
-  "strings"
+	"context"
 
   "github.com/BurntSushi/toml"
-  "github.com/chzyer/readline"
-  "github.com/common-nighthawk/go-figure"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-  "github.com/johnjallday/dolphin-tool-calling-agent/internal/tui"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
 )
 
@@ -21,138 +15,115 @@ type AppConfig struct {
   DefaultUser string `toml:"default_user"`
 }
 
-type App interface {
-  Init(configPath string) error
-  Run(ctx context.Context) error
-}
-
 type DefaultApp struct {
-  cfg AppConfig
-  usr *user.User
-  ag  *agent.Agent
+  currentUser *user.User
+	currentAgent *agent.Agent
 }
 
 func NewApp() App { return &DefaultApp{} }
 
-func (a *DefaultApp) Init(configPath string) error {
-  if _, err := toml.DecodeFile(configPath, &a.cfg); err != nil {
-    return fmt.Errorf("load app config: %w", err)
+func (a *DefaultApp) Init() error {
+  cfgDir := "configs"
+  if err := os.MkdirAll(cfgDir, 0755); err != nil {
+    return fmt.Errorf("create configs folder: %w", err)
   }
 
-  var err error
-  if a.cfg.DefaultUser != "" {
-    a.usr, err = user.NewUser(a.cfg.DefaultUser)
-    if err != nil {
-      fmt.Fprintf(os.Stderr, "Default user %q not found.\n", a.cfg.DefaultUser)
-      a.usr = a.selectUser()
+  settingPath := filepath.Join(cfgDir, "app_setting.toml")
+  var cfg AppConfig
+  if info, err := os.Stat(settingPath); err != nil {
+    if os.IsNotExist(err) {
+      f, err := os.Create(settingPath)
+      if err != nil {
+        return fmt.Errorf("create app_setting.toml: %w", err)
+      }
+      defer f.Close()
+      _, err = f.WriteString("default_user = \"\"\n")
+      fmt.Println("creating configs folder")
+      fmt.Println("creating app_setting.toml")
+      return err
     }
-  } else {
-    a.usr = a.selectUser()
+    return fmt.Errorf("stat app_setting.toml: %w", err)
+  } else if info.IsDir() {
+    return fmt.Errorf("app_setting.toml is a directory")
   }
 
-  if a.usr.DefaultAgent != nil {
-    a.ag = a.usr.DefaultAgent
-  } else {
-    meta := a.selectAgent()
-    a.ag, err = agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
-    if err != nil {
-      return fmt.Errorf("init agent: %w", err)
+  if _, err := toml.DecodeFile(settingPath, &cfg); err != nil {
+    return fmt.Errorf("parse app config: %w", err)
+  }
+
+  if cfg.DefaultUser == "" {
+    fmt.Errorf("default_user not set in app_setting.toml")
+		return nil
+  }
+
+	if err := a.LoadUser(cfg.DefaultUser); err != nil {
+    return err
+  }
+
+	a.currentAgent = a.currentUser.DefaultAgent
+  return nil
+}
+
+func (a *DefaultApp) Users() []string {
+  var names []string
+  dir := "configs/users"
+  entries, err := os.ReadDir(dir)
+  if err != nil {
+    return names
+  }
+  for _, e := range entries {
+    if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
+      continue
     }
+    var m struct{ Name string `toml:"name"` }
+    if _, err := toml.DecodeFile(filepath.Join(dir, e.Name()), &m); err == nil && m.Name != "" {
+      names = append(names, m.Name)
+    }
+  }
+  return names
+}
+
+func (a *DefaultApp) LoadUser(username string) error {
+  fn := filepath.Join("configs", "users", username+".toml")
+  var tmp struct {
+    Name             string           `toml:"name"`
+    DefaultAgentName string           `toml:"default_agent"`
+    Agents           []user.AgentMeta `toml:"agents"`
+  }
+  if _, err := toml.DecodeFile(fn, &tmp); err != nil {
+    return fmt.Errorf("load user %q: %w", username, err)
+  }
+
+  var meta *user.AgentMeta
+  for i := range tmp.Agents {
+    if tmp.Agents[i].Name == tmp.DefaultAgentName {
+      meta = &tmp.Agents[i]
+      break
+    }
+  }
+  if meta == nil {
+    return fmt.Errorf("default agent %q not found in %q", tmp.DefaultAgentName, username)
+  }
+
+  ag, err := agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
+  if err != nil {
+    return fmt.Errorf("init agent %q: %w", meta.Name, err)
+  }
+
+  a.currentUser = &user.User{
+    Name:         tmp.Name,
+    Agents:       tmp.Agents,
+    DefaultAgent: ag,
   }
   return nil
 }
 
-func (a *DefaultApp) Run(ctx context.Context) error {
-  tui.PrintLogo()
-  a.usr.Print()
-  fig := figure.NewColorFigure(a.ag.Name, "", "cyan", true)
-  fig.Print(); fmt.Println()
-  a.ag.PrintTools()
+func (a *DefaultApp) CurrentUser() *user.User    { return a.currentUser }
+func (a *DefaultApp) CurrentAgent() *agent.Agent { return a.currentAgent }
 
-  for {
-    line := a.readQuestion()
-    parts := strings.Fields(line)
-    if len(parts) == 0 { continue }
-    switch strings.ToLower(parts[0]) {
-    case "help", "tools":
-      tui.PrintLogo(); a.ag.PrintTools()
-    case "exit", "quit":
-      fmt.Println("Bye!"); return nil
-    default:
-      if err := a.ag.SendMessage(ctx, line); err != nil {
-        fmt.Printf("Error: %v\n", err)
-      }
-    }
+func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
+  if a.currentAgent == nil {
+    return fmt.Errorf("no agent loaded")
   }
-}
-
-func (a *DefaultApp) selectUser() *user.User {
-  files, err := os.ReadDir("configs/users")
-  if err != nil {
-    fmt.Fprintf(os.Stderr, "Failed to list users: %v\n", err)
-    os.Exit(1)
-  }
-  var names []string
-  for _, f := range files {
-    if f.IsDir() || filepath.Ext(f.Name()) != ".toml" {
-      continue
-    }
-    names = append(names, strings.TrimSuffix(f.Name(), ".toml"))
-  }
-
-  reader := bufio.NewReader(os.Stdin)
-  for {
-    fmt.Println("Available users:")
-    for i, n := range names {
-      fmt.Printf("[%d] %s\n", i+1, n)
-    }
-    fmt.Print("Select user by number: ")
-    input, _ := reader.ReadString('\n')
-    if idx, err := strconv.Atoi(strings.TrimSpace(input)); err == nil && idx > 0 && idx <= len(names) {
-      usr, err := user.NewUser(names[idx-1])
-      if err != nil {
-        fmt.Printf("Failed to load user: %v\n", err)
-        continue
-      }
-      return usr
-    }
-    fmt.Println("Invalid choice, try again.")
-  }
-}
-
-func (a *DefaultApp) selectAgent() user.AgentMeta {
-  fmt.Println("Available agents:")
-  for i, m := range a.usr.Agents {
-    fmt.Printf("[%d] %s\n", i+1, m.Name)
-  }
-  reader := bufio.NewReader(os.Stdin)
-  for {
-    fmt.Print("Select agent by number: ")
-    input, _ := reader.ReadString('\n')
-    if n, err := strconv.Atoi(strings.TrimSpace(input)); err == nil && n > 0 && n <= len(a.usr.Agents) {
-      return a.usr.Agents[n-1]
-    }
-    fmt.Println("Invalid choice, try again.")
-  }
-}
-
-func (a *DefaultApp) readQuestion() string {
-  rl, _ := readline.New("> ")
-  defer rl.Close()
-  rl.Config.FuncFilterInputRune = func(r rune) (rune, bool) {
-    if r == readline.CharCtrlL {
-      fmt.Print("\033[H\033[2J"); rl.Refresh()
-      return 0, false
-    }
-    return r, true
-  }
-  for {
-    line, err := rl.Readline()
-    if err == readline.ErrInterrupt {
-      fmt.Println("\nExiting..."); os.Exit(0)
-    }
-    if s := strings.TrimSpace(line); s != "" {
-      return s
-    }
-  }
+  return a.currentAgent.SendMessage(ctx, msg)
 }
