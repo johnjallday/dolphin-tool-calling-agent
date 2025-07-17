@@ -30,8 +30,7 @@ func (a *DefaultApp) Init() error {
   }
 
   settingPath := filepath.Join(cfgDir, "app_setting.toml")
-  var cfg AppConfig
-  if info, err := os.Stat(settingPath); err != nil {
+  if _, err := os.Stat(settingPath); err != nil {
     if os.IsNotExist(err) {
       f, err := os.Create(settingPath)
       if err != nil {
@@ -39,31 +38,21 @@ func (a *DefaultApp) Init() error {
       }
       defer f.Close()
       _, err = f.WriteString("default_user = \"\"\n")
-      fmt.Println("creating configs folder")
-      fmt.Println("creating app_setting.toml")
       return err
     }
     return fmt.Errorf("stat app_setting.toml: %w", err)
-  } else if info.IsDir() {
-    return fmt.Errorf("app_setting.toml is a directory")
   }
 
+  var cfg AppConfig
   if _, err := toml.DecodeFile(settingPath, &cfg); err != nil {
-    return fmt.Errorf("parse app config: %w", err)
+    return fmt.Errorf("parse app_setting.toml: %w", err)
   }
 
   if cfg.DefaultUser == "" {
-    fmt.Errorf("default_user not set in app_setting.toml")
-		fmt.Println("no DefaultUser Set")
-		return nil
+    return fmt.Errorf("default_user not set in %s", settingPath)
   }
 
-	if err := a.LoadUser(cfg.DefaultUser); err != nil {
-    return err
-  }
-
-	a.currentAgent = a.currentUser.DefaultAgent
-  return nil
+  return a.LoadUser(cfg.DefaultUser)
 }
 
 func (a *DefaultApp) Users() []string {
@@ -87,40 +76,13 @@ func (a *DefaultApp) Users() []string {
 
 // LoadUser loads the user TOML and then loads the default agent.
 func (a *DefaultApp) LoadUser(username string) error {
-  dir := "configs/users"
-  entries, err := os.ReadDir(dir)
+  u, err := user.NewUser(username)
   if err != nil {
-    return fmt.Errorf("read users directory: %w", err)
+    return fmt.Errorf("load user %q: %w", username, err)
   }
-
-  var tmp struct {
-    Name             string           `toml:"name"`
-    DefaultAgentName string           `toml:"default_agent"`
-    Agents           []user.AgentMeta `toml:"agents"`
-  }
-  found := false
-  for _, e := range entries {
-    if e.IsDir() || filepath.Ext(e.Name()) != ".toml" {
-      continue
-    }
-    path := filepath.Join(dir, e.Name())
-    if _, err := toml.DecodeFile(path, &tmp); err == nil && tmp.Name == username {
-      found = true
-      break
-    }
-  }
-  if !found {
-    return fmt.Errorf("user %q not found in %s", username, dir)
-  }
-
-  a.currentUser = &user.User{
-    Name:         tmp.Name,
-    Agents:       tmp.Agents,
-    DefaultAgent: nil, // will be set in LoadAgent
-  }
-
-  // Initialize the app-level currentAgent
-  return a.LoadAgent(tmp.DefaultAgentName)
+  a.currentUser = u
+  a.currentAgent = u.DefaultAgent
+  return nil
 }
 
 func (a *DefaultApp) CurrentUser() *user.User {
@@ -163,7 +125,7 @@ func (a *DefaultApp) LoadAgent(agentName string) error {
     return nil
   }
 
-  ag, err := agent.NewAgent(meta.Name, meta.Model, meta.ToolPaths)
+  ag, err := agent.NewAgent(meta.Name, meta.Model, meta.Plugins)
   if err != nil {
     return fmt.Errorf("init agent %q: %w", meta.Name, err)
   }

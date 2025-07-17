@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"os"
   "context"
   "fmt"
   "path/filepath"
@@ -22,9 +23,8 @@ type Agent struct {
   params   openai.ChatCompletionNewParams
 }
 
-func NewAgent(name, model string, toolPaths []string) (*Agent, error) {
+func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   client := openai.NewClient()
-
   a := &Agent{
     Name:     name,
     Model:    model,
@@ -38,29 +38,33 @@ func NewAgent(name, model string, toolPaths []string) (*Agent, error) {
     },
   }
 
-  for _, tp := range toolPaths {
-    absP, err := filepath.Abs(tp)
+  cwd, _ := os.Getwd()
+  pluginDir := filepath.Join(cwd, "plugins")
+
+  for _, pname := range pluginNames {
+    path := filepath.Join(pluginDir, pname+".so")
+    plug, err := plugin.Open(path)
     if err != nil {
-      return nil, fmt.Errorf("resolve plugin path %q: %w", tp, err)
+      return nil, fmt.Errorf("open plugin %q: %w", pname, err)
     }
-    plug, err := plugin.Open(absP)
+    sym, err := plug.Lookup("PluginPackage")
     if err != nil {
-      return nil, fmt.Errorf("open plugin %q: %w", absP, err)
+      return nil, fmt.Errorf("lookup PluginPackage in %q: %w", pname, err)
     }
-    if symPkg, err := plug.Lookup("PluginPackage"); err == nil {
-      pkgFunc, ok := symPkg.(func() tools.ToolPackage)
-      if !ok {
-        return nil, fmt.Errorf("invalid PluginPackage signature in %q", absP)
-      }
-      for _, t := range pkgFunc().Tools {
-        a.Registry.Register(t)
-      }
+    pkgFunc, ok := sym.(func() tools.ToolPackage)
+    if !ok {
+      return nil, fmt.Errorf("invalid PluginPackage signature in %q", pname)
+    }
+    pkg := pkgFunc()
+    for _, t := range pkg.Tools {
+      a.Registry.Register(t)
     }
   }
 
   a.Registry.Initialize(&a.params)
   return a, nil
 }
+
 
 func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
   a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
@@ -130,4 +134,35 @@ func (a *Agent) Print() {
   for _, name := range names {
     cItem.Println("  - " + name)
   }
+}
+
+// helpers
+func keys(m map[string]tools.Tool) []string {
+  ks := []string{}
+  for k := range m {
+    ks = append(ks, k)
+  }
+  return ks
+}
+func keysPack(m map[string]tools.ToolPackage) []string {
+  ks := []string{}
+  for k := range m {
+    ks = append(ks, k)
+  }
+  return ks
+}
+func packNames(packs []tools.ToolPackage) []string {
+  ns := []string{}
+  for _, p := range packs {
+    ns = append(ns, p.Name)
+  }
+  return ns
+}
+func findPackByName(packs []tools.ToolPackage, name string) *tools.ToolPackage {
+  for _, p := range packs {
+    if p.Name == name {
+      return &p
+    }
+  }
+  return nil
 }

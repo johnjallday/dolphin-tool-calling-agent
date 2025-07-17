@@ -1,18 +1,19 @@
-name           = "jj"
-default_agent  = "reaper_agent"
+name          = "jj"
+default_agent = "example_agent"
 
 [[agents]]
-name       = "reaper_agent"
-model      = "gpt-4.1-nano"
-tool_path  = [
-  "./plugins/reaper_project_manager/reaper_project_manager.so",
+name        = "reaper_agent"
+model       = "gpt-4.1-nano"
+plugins  = [
+  "reaper_project_manager",
+  "reascript_launcher",
 ]
 
 [[agents]]
-name       = "example_agent"
-model      = "gpt-4.1-nano"
-tool_path  = [
-  "./plugins/mytool.so",
-  "./plugins/weather.so",
-  "./plugins/calculator.so",
+name        = "example_agent"
+model       = "gpt-4.1-nano"
+plugins  = [
+  "mytool",
+  "weather",
+  "calculator",
 ]

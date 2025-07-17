@@ -69,7 +69,14 @@ func (r *ToolRegistry) PrintTools() {
     fmt.Println("Available tools:")
     for _, t := range r.Tools {
         fmt.Printf(" - %s: %s\n", t.Name, t.Description)
-        // If you want to show parameters schema:
-        // fmt.Printf("   parameters: %v\n", t.Parameters)
     }
+}
+
+
+func (r *ToolRegistry) ListToolNames() []string {
+    names := make([]string, len(r.Tools))
+    for i, t := range r.Tools {
+        names[i] = t.Name
+    }
+    return names
 }
