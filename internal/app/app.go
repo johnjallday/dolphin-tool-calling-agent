@@ -10,6 +10,7 @@ import (
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
 	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
+	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
 type AppConfig struct {
@@ -158,4 +159,10 @@ func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
     return fmt.Errorf("no agent loaded")
   }
   return a.agent.SendMessage(ctx, msg)
+}
+
+
+// Tools returns the slice of registered tools.
+func (a *DefaultApp) Tools() []tools.Tool {
+    return a.agent.Tools()
 }

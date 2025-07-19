@@ -90,6 +90,7 @@ func main() {
       fmt.Println(a.Users())
     case lower == "help":
       tui.PrintLogo()
+			tui.PrintHelp()
     case lower == "exit" || lower == "quit":
       fmt.Println("Bye!")
       return

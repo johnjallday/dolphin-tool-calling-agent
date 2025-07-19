@@ -25,9 +25,6 @@ func PrintLogo() {
 }
 
 
-
-
-
 func PrintToolPacks() {
     const root = "./plugins/"
 

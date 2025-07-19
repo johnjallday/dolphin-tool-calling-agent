@@ -100,9 +100,11 @@ func (a *Agent) dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall) 
   }
 }
 
-func (a *Agent) PrintTools() {
-	fmt.Println(a.Registry)
+func (a *Agent) Tools() []tools.Tool {
+    return a.Registry.Tools()
 }
+
+
 
 func (a *Agent) Close() {
   a.Name = ""
