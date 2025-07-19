@@ -17,8 +17,8 @@ type AppConfig struct {
 }
 
 type DefaultApp struct {
-  currentUser *user.User
-	currentAgent *agent.Agent
+  user *user.User
+	agent *agent.Agent
 }
 
 func NewApp() App { return &DefaultApp{} }
@@ -80,48 +80,48 @@ func (a *DefaultApp) LoadUser(username string) error {
   if err != nil {
     return fmt.Errorf("load user %q: %w", username, err)
   }
-  a.currentUser = u
-  a.currentAgent = u.DefaultAgent
+  a.user = u
+  a.agent = u.DefaultAgent
   return nil
 }
 
-func (a *DefaultApp) CurrentUser() *user.User {
-    if a.currentUser == nil {
+func (a *DefaultApp) User() *user.User {
+    if a.user == nil {
         return &user.User{
             Name:         "<none>",
             DefaultAgent: nil,
             Agents:       nil,
         }
     }
-    return a.currentUser
+    return a.user
 }
 
-func (a *DefaultApp) CurrentAgent() *agent.Agent {
-  if a.currentAgent == nil {
+func (a *DefaultApp) Agent() *agent.Agent {
+  if a.agent == nil {
     return &agent.Agent{
       Name:     "<none>",
       Model:    "<none>",
       Registry: registry.NewToolRegistry(),
     }
   }
-  return a.currentAgent
+  return a.agent
 
 }
 
-// LoadAgent selects one of the currentUser’s agents by name and sets it to currentAgent.
+// LoadAgent selects one of the user’s agents by name and sets it to agent.
 func (a *DefaultApp) LoadAgent(agentName string) error {
-  if a.currentUser == nil {
+  if a.user == nil {
     return fmt.Errorf("no user loaded")
   }
   var meta *user.AgentMeta
-  for i := range a.currentUser.Agents {
-    if a.currentUser.Agents[i].Name == agentName {
-      meta = &a.currentUser.Agents[i]
+  for i := range a.user.Agents {
+    if a.user.Agents[i].Name == agentName {
+      meta = &a.user.Agents[i]
       break
     }
   }
   if meta == nil {
-    fmt.Println("agent %q not found for user %q", agentName, a.currentUser.Name)
+    fmt.Println("agent %q not found for user %q", agentName, a.user.Name)
     return nil
   }
 
@@ -130,34 +130,32 @@ func (a *DefaultApp) LoadAgent(agentName string) error {
     return fmt.Errorf("init agent %q: %w", meta.Name, err)
   }
 
-  a.currentAgent = ag
+  a.agent = ag
   // also update the default in the user struct if desired
-  a.currentUser.DefaultAgent = ag
+  a.user.DefaultAgent = ag
   return nil
 }
 
 func (a *DefaultApp) UnloadAgent() error {
-  if a.currentAgent == nil {
+  if a.agent == nil {
     return fmt.Errorf("no agent loaded")
   }
-  a.currentAgent = nil
+  a.agent = nil
   return nil
 }
 
 func (a *DefaultApp) UnloadUser() error {
-  if a.currentUser == nil {
+  if a.user == nil {
     return fmt.Errorf("no user loaded")
   }
-  a.currentUser = nil
-  a.currentAgent = nil
+  a.user = nil
+  a.agent = nil
   return nil
 }
 
-
-
 func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
-  if a.currentAgent == nil {
+  if a.agent == nil {
     return fmt.Errorf("no agent loaded")
   }
-  return a.currentAgent.SendMessage(ctx, msg)
+  return a.agent.SendMessage(ctx, msg)
 }

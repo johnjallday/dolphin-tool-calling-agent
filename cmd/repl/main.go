@@ -27,7 +27,7 @@ func main() {
   }
   defer rl.Close()
 
-  a.CurrentUser().Print()
+  a.User().Print()
   for {
     line, err := rl.Readline()
     if err != nil {
@@ -63,7 +63,7 @@ func main() {
         fmt.Fprintln(os.Stderr, "load user error:", err)
       } else {
         fmt.Println("Loaded user:", username)
-				a.CurrentAgent().Print()
+				a.Agent().Print()
       }
 
 		case len(fields) >= 2 && strings.ToLower(fields[0]) == "load" && strings.ToLower(fields[1]) == "agent":
@@ -76,14 +76,14 @@ func main() {
 				fmt.Fprintln(os.Stderr, "load agent error:", err)
 			} else {
 				fmt.Println("Loaded agent:", agentName)
-				a.CurrentAgent().Print()
+				a.Agent().Print()
 			}
 		case lower == "tools":
-			a.CurrentAgent().PrintTools()
-    case lower == "current agent" || lower == "current_agent":
-      a.CurrentAgent().Print()
-    case lower == "current user" || lower == "current_user" || lower == "agents":
-      a.CurrentUser().Print()
+			a.Agent().PrintTools()
+    case lower == "agent" || lower == "current agent":
+      a.Agent().Print()
+    case lower == "user" || lower == "current user" || lower == "agents":
+      a.User().Print()
     case lower == "users":
       fmt.Println(a.Users())
     case lower == "help":

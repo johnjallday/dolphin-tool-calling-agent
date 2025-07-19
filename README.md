@@ -1,4 +1,4 @@
-# 🐬Dolphin Tool Calling Agent
+# 🐬 Dolphin Tool Calling Agent 🐬
 This is a simple tool calling agent written in Go.
 Often times, we don't really need a complicated AI that does everything for us.
 Not all AI fits all. Why not build your own tool?
@@ -47,6 +47,7 @@ create an agent with plugins or tools
 -[] Agent Builder
 -[] Python Support
 -[] Windows DLL Support
+
 
 ## Potential Ideas
 -[] Tool Market

@@ -135,34 +135,3 @@ func (a *Agent) Print() {
     cItem.Println("  - " + name)
   }
 }
-
-// helpers
-func keys(m map[string]tools.Tool) []string {
-  ks := []string{}
-  for k := range m {
-    ks = append(ks, k)
-  }
-  return ks
-}
-func keysPack(m map[string]tools.ToolPackage) []string {
-  ks := []string{}
-  for k := range m {
-    ks = append(ks, k)
-  }
-  return ks
-}
-func packNames(packs []tools.ToolPackage) []string {
-  ns := []string{}
-  for _, p := range packs {
-    ns = append(ns, p.Name)
-  }
-  return ns
-}
-func findPackByName(packs []tools.ToolPackage, name string) *tools.ToolPackage {
-  for _, p := range packs {
-    if p.Name == name {
-      return &p
-    }
-  }
-  return nil
-}

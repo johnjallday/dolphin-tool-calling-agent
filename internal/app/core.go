@@ -18,8 +18,8 @@ type ToolInfo struct {
 type App interface {
   Init() error
   Users() []string
-	CurrentUser() *user.User
-	CurrentAgent() *agent.Agent
+	User() *user.User
+	Agent() *agent.Agent
   SendMessage(context.Context, string) error
 	LoadUser(username string) error
 	LoadAgent(agentName string) error
