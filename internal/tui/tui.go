@@ -124,3 +124,14 @@ func PrintHelp() {
     }
     fmt.Println()
 }
+
+
+func PrintAgents(list []user.AgentMeta) {
+    if len(list) == 0 {
+        fmt.Println("  (no agents)")
+        return
+    }
+    for _, m := range list {
+        fmt.Printf("  - %s (model=%s)\n", m.Name, m.Model)
+    }
+}

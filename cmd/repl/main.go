@@ -84,6 +84,10 @@ func main() {
 			tui.PrintTools(a.Agent())
     case lower == "agent" || lower == "current agent":
 			tui.PrintAgent(a.Agent()) 
+
+		case lower == "agents":
+    	fmt.Printf("agents for %q:\n", a.User().Name)
+    	tui.PrintAgents(a.Agents())
     case lower == "user" || lower == "current user" || lower == "agents":
 			tui.PrintUser(a.User()) 
     case lower == "users":

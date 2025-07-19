@@ -166,3 +166,12 @@ func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
 func (a *DefaultApp) Tools() []tools.Tool {
     return a.agent.Tools()
 }
+
+func (a *DefaultApp) Agents() []user.AgentMeta {
+    if a.user == nil {
+        // no user loaded → no agents
+        return nil
+    }
+    // simply return the slice of AgentMeta from the loaded user
+    return a.user.Agents
+}

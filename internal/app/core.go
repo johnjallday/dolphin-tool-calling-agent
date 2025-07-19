@@ -5,6 +5,7 @@ import (
 
 	"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
 type AgentMeta struct {
@@ -20,11 +21,11 @@ type App interface {
   Users() []string
 	User() *user.User
 	Agent() *agent.Agent
+	Agents() []user.AgentMeta
   SendMessage(context.Context, string) error
 	LoadUser(username string) error
 	LoadAgent(agentName string) error
 	UnloadUser() error
 	UnloadAgent() error
-  //Agents() []AgentMeta
-  //Tools() []ToolInfo
+	Tools() []tools.Tool
 }
