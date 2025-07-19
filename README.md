@@ -47,6 +47,7 @@ create an agent with plugins or tools
 -[] Agent Builder
 -[] Python Support
 -[] Windows DLL Support
+-[] Web3 Integration
 
 
 ## Potential Ideas

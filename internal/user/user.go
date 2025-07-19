@@ -5,7 +5,6 @@ import (
   "path/filepath"
 
   "github.com/BurntSushi/toml"
-  "github.com/fatih/color"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
 )
 
@@ -49,21 +48,19 @@ func NewUser(userID string) (*User, error) {
   return u, nil
 }
 
-func (u *User) Print() {
-  cLabel := color.New(color.FgCyan, color.Bold)
-  cValue := color.New(color.FgWhite)
-  cList  := color.New(color.FgMagenta, color.Bold)
-  //cItem  := color.New(color.FgGreen)
 
-  cLabel.Print("User: "); cValue.Println(u.Name)
-  cLabel.Print("Default Agent: ")
+func (u *User) String() string {
+  s := fmt.Sprintf("User: %s\n", u.Name)
   if u.DefaultAgent != nil {
-    cValue.Println(u.DefaultAgent.Name)
+    s += fmt.Sprintf("Default Agent: %s\n", u.DefaultAgent.Name)
   } else {
-    cValue.Println("<none>")
+    s += "Default Agent: <none>\n"
   }
-  cList.Println("Available Agents:")
+  s += "Available Agents:\n"
   for _, meta := range u.Agents {
-    fmt.Printf("  - %s (plugins: %v)\n", meta.Name, meta.Plugins)
+    s += fmt.Sprintf("  - %s (plugins: %v)\n", meta.Name, meta.Plugins)
   }
+  return s
 }
+
+

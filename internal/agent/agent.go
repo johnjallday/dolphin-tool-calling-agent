@@ -6,9 +6,9 @@ import (
   "fmt"
   "path/filepath"
   "plugin"
-	"sort"
+	//"sort"
 
-  "github.com/fatih/color"
+  //"github.com/fatih/color"
 
   "github.com/openai/openai-go"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
@@ -101,7 +101,7 @@ func (a *Agent) dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall) 
 }
 
 func (a *Agent) PrintTools() {
-  a.Registry.PrintTools()
+	fmt.Println(a.Registry)
 }
 
 func (a *Agent) Close() {
@@ -111,27 +111,14 @@ func (a *Agent) Close() {
   a.Registry = nil
 }
 
-func (a *Agent) Print() {
-	if a.Name == "<none>" {
-    fmt.Println("No agent selected")
-    return
-  }
-  cLabel := color.New(color.FgCyan, color.Bold)
-  cValue := color.New(color.FgWhite)
-  cList  := color.New(color.FgMagenta, color.Bold)
-  cItem  := color.New(color.FgGreen)
-
-  cLabel.Print("Agent: "); cValue.Println(a.Name)
-  cLabel.Print("Model: "); cValue.Println(a.Model)
-
-  cList.Println("Registered Tools:")
-  handlers := a.Registry.Handlers()
-  names := make([]string, 0, len(handlers))
-  for name := range handlers {
-    names = append(names, name)
-  }
-  sort.Strings(names)
-  for _, name := range names {
-    cItem.Println("  - " + name)
-  }
+func (a *Agent) String() string {
+	if a == nil || a.Name == "<none>" {
+		return "No agent selected\n"
+	}
+	result := fmt.Sprintf("Agent: %s\nModel: %s\n", a.Name, a.Model)
+	result += a.Registry.String()
+	return result
 }
+
+
+

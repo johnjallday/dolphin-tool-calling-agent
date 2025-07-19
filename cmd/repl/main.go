@@ -20,6 +20,7 @@ func main() {
   }
 
   tui.PrintLogo()
+	tui.PrintHelp()
   rl, err := readline.New("> ")
   if err != nil {
     fmt.Fprintln(os.Stderr, "readline error:", err)
@@ -27,7 +28,8 @@ func main() {
   }
   defer rl.Close()
 
-  a.User().Print()
+	tui.PrintUser(a.User()) 
+
   for {
     line, err := rl.Readline()
     if err != nil {
@@ -63,7 +65,7 @@ func main() {
         fmt.Fprintln(os.Stderr, "load user error:", err)
       } else {
         fmt.Println("Loaded user:", username)
-				a.Agent().Print()
+				//a.Agent().Print()
       }
 
 		case len(fields) >= 2 && strings.ToLower(fields[0]) == "load" && strings.ToLower(fields[1]) == "agent":
@@ -76,14 +78,14 @@ func main() {
 				fmt.Fprintln(os.Stderr, "load agent error:", err)
 			} else {
 				fmt.Println("Loaded agent:", agentName)
-				a.Agent().Print()
+				//a.Agent().Print()
 			}
 		case lower == "tools":
-			a.Agent().PrintTools()
+			tui.PrintTools(a.Agent())
     case lower == "agent" || lower == "current agent":
-      a.Agent().Print()
+			tui.PrintAgent(a.Agent()) 
     case lower == "user" || lower == "current user" || lower == "agents":
-      a.User().Print()
+			tui.PrintUser(a.User()) 
     case lower == "users":
       fmt.Println(a.Users())
     case lower == "help":

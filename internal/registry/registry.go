@@ -61,6 +61,19 @@ func (r *ToolRegistry) Clear() {
     r.handlers = make(map[string]func(openai.ChatCompletionMessageToolCall, *openai.ChatCompletionNewParams))
 }
 
+
+
+func (r *ToolRegistry) String() string {
+    if len(r.Tools) == 0 {
+        return "No tools registered."
+    }
+    out := "Available tools:\n"
+    for _, t := range r.Tools {
+        out += fmt.Sprintf(" - %s: %s\n", t.Name, t.Description)
+    }
+    return out
+}
+
 func (r *ToolRegistry) PrintTools() {
     if len(r.Tools) == 0 {
         fmt.Println("No tools registered.")
