@@ -167,11 +167,11 @@ func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
 
 // Tools returns the slice of registered tools.
 func (a *DefaultApp) Tools() []tools.Tool {
-	if a.agent == nil{
-		fmt.Println("No Agent loaded")
-		//return fmt.Errorf("no agent loaded")
-	}
-  return a.agent.Tools()
+    // if there is no agent, just return an empty slice
+    if a.agent == nil {
+        return nil
+    }
+    return a.agent.Tools()
 }
 
 func (a *DefaultApp) Agents() []user.AgentMeta {

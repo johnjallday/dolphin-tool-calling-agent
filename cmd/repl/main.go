@@ -50,27 +50,20 @@ func main() {
   // 5) command registry (include "clear")
   helpKeys := []string{
     "user", "users", "agent", "agents", "tools",
-    "unload-user", "unload-agent",
+    "create-agent", "unload-user", "unload-agent",
     "help", "clear", "exit", "quit",
   }
+
   commands := map[string]CmdFunc{
-    "user":         func(t *tui.TUIApp, _ []string) error { return tui.CurrentUser(*t) },
-    "users":        func(t *tui.TUIApp, _ []string) error { return tui.Users(*t) },
-    "agent":        func(t *tui.TUIApp, _ []string) error { return tui.Agent(*t) },
-    "agents":       func(t *tui.TUIApp, _ []string) error { return tui.Agents(*t) },
-    "tools":        func(t *tui.TUIApp, _ []string) error { return tui.Tools(*t) },
-    "unload-user":  func(t *tui.TUIApp, _ []string) error { 
-			if err := tui.UnloadUser(*t); err != nil {
-				return err
-			}
-			return t.Refresh()
-		},
-    "unload-agent": func(t *tui.TUIApp, _ []string) error { 
-			if err := tui.UnloadAgent(*t); err != nil {
-				return err
-			}
-			return t.Refresh()
-		},
+    "user":         tui.UserCmd,
+    "users":        tui.UsersCmd,
+    "agent":        tui.AgentCmd,
+    "agents":       tui.AgentsCmd,
+    "tools":        tui.ToolsCmd,
+    "create-agent": tui.CreateAgentCmd,
+    "unload-user":  tui.UnloadUserCmd,
+    "unload-agent": tui.UnloadAgentCmd,
+
     "help": func(t *tui.TUIApp, _ []string) error {
       fmt.Fprintln(t.Out, "Available commands:")
       for _, k := range helpKeys {
@@ -90,7 +83,6 @@ func main() {
       return nil
     },
   }
-
   // initial draw
   if err := t.Refresh(); err != nil {
     fmt.Fprintln(os.Stderr, "refresh error:", err)
