@@ -30,12 +30,17 @@ func (t *TUIApp) clearScreen() {
 // Refresh clears the screen, prints the logo, then status.
 func (t *TUIApp) Refresh() error {
     t.clearScreen()
-    PrintLogo()
-    return PrintStatus(t)
+    t.PrintLogo()
+		err := t.StatusCmd()
+		if err != nil{
+      fmt.Printf("error loading status bar")
+		}
+
+    return nil
 }
 
 // PrintLogo prints the dolphin logo banner.
-func PrintLogo() {
+func (t *TUIApp) PrintLogo(){
     logo := `
         🐬
 `
@@ -183,9 +188,12 @@ func PrintStatus(t *TUIApp) error {
 // UnloadUserCmd unloads the current user and refreshes.
 func UnloadUserCmd(t *TUIApp, _ []string) error {
     if err := t.App.UnloadUser(); err != nil {
-        color.New(color.FgRed).Fprintf(t.Err, "error unloading user: %v\n", err)
+        // print error to stderr and bail
+        color.New(color.FgRed).
+            Fprintln(t.Err, "error unloading user:", err)
         return err
     }
+    // success!
     color.New(color.FgGreen).Fprintln(t.Out, "✓ user unloaded")
     return t.Refresh()
 }
@@ -228,3 +236,5 @@ func CreateAgentCmd(t *TUIApp, args []string) error {
     )
     return t.Refresh()
 }
+
+

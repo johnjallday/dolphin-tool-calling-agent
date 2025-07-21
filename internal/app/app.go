@@ -9,7 +9,7 @@ import (
   "github.com/BurntSushi/toml"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
+	//"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
 	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
@@ -90,26 +90,11 @@ func (a *DefaultApp) LoadUser(username string) error {
 }
 
 func (a *DefaultApp) User() *user.User {
-    if a.user == nil {
-        return &user.User{
-            Name:         "<none>",
-            DefaultAgent: nil,
-            Agents:       nil,
-        }
-    }
     return a.user
 }
 
 func (a *DefaultApp) Agent() *agent.Agent {
-  if a.agent == nil {
-    return &agent.Agent{
-      Name:     "<none>",
-      Model:    "<none>",
-      Registry: registry.NewToolRegistry(),
-    }
-  }
   return a.agent
-
 }
 
 // LoadAgent selects one of the user’s agents by name and sets it to agent.

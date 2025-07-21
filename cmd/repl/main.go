@@ -92,6 +92,8 @@ func main() {
   repl(rl, t, commands)
 }
 
+
+
 func repl(rl *liner.State, t *tui.TUIApp, commands map[string]CmdFunc) {
   for {
     line, err := rl.Prompt("> ")
@@ -111,6 +113,10 @@ func repl(rl *liner.State, t *tui.TUIApp, commands map[string]CmdFunc) {
 
     line = strings.TrimSpace(line)
     if line == "" {
+      // blank → just redraw status bar
+      if err := t.Refresh(); err != nil {
+        fmt.Fprintln(t.Err, "refresh error:", err)
+      }
       continue
     }
 
@@ -118,18 +124,20 @@ func repl(rl *liner.State, t *tui.TUIApp, commands map[string]CmdFunc) {
     cmd, args := parts[0], parts[1:]
 
     if fn, ok := commands[cmd]; ok {
-      // redraw before each built-in
-      if err := t.Refresh(); err != nil {
-        fmt.Fprintln(t.Err, "refresh error:", err)
-      }
+      // call the built-in
       if err := fn(t, args); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
+      // then redraw status (logo + status bar)
+      if err := t.Refresh(); err != nil {
+        fmt.Fprintln(t.Err, "refresh error:", err)
+      }
     } else {
-      // fallback: OpenAI
+      // fallback: send to OpenAI/chat
       if err := t.App.SendMessage(t.Ctx, line); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
+      // do NOT refresh here or you’ll wipe out the chat history
     }
 
     rl.AppendHistory(line)
