@@ -23,9 +23,11 @@ type App interface {
 	Agent() *agent.Agent
 	Agents() []user.AgentMeta
   SendMessage(context.Context, string) error
+	CreateAgent(meta AgentMeta) error
 	LoadUser(username string) error
 	LoadAgent(agentName string) error
 	UnloadUser() error
 	UnloadAgent() error
 	Tools() []tools.Tool
+	//Status()
 }

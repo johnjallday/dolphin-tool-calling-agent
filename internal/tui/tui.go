@@ -7,14 +7,27 @@ import (
 	"path/filepath"
  	"reflect"
 	"strings"
+	"io"
+	"context"
+	
 
 	"github.com/fatih/color"
-  "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-  "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+  //"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
+  //"github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
 	"github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
+	"github.com/peterh/liner"
 	//"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
 	//"github.com/jedib0t/go-pretty/v6/table"
 )
+
+type TUIApp struct {
+  Ctx   context.Context
+  App   app.App                // your domain interface, see below
+  Out   io.Writer          // usually os.Stdout
+  Err   io.Writer          // usually os.Stderr
+  Rl   *liner.State      // your REPL state if you need it
+}
+
 
 func PrintLogo() {
 	logo := `
@@ -56,54 +69,6 @@ func PrintToolPacks() {
 }
 
 
-func PrintUser(u *user.User) {
-  cLabel := color.New(color.FgCyan, color.Bold)
-  cValue := color.New(color.FgWhite)
-  cList  := color.New(color.FgMagenta, color.Bold)
-
-  cLabel.Print("User: ")
-  cValue.Println(u.Name)
-
-  cLabel.Print("Default Agent: ")
-  if u.DefaultAgent != nil {
-    cValue.Println(u.DefaultAgent.Name)
-  } else {
-    cValue.Println("<none>")
-  }
-
-  cList.Println("Available Agents:")
-  for _, meta := range u.Agents {
-    fmt.Printf("  - %s (plugins: %v)\n", meta.Name, meta.Plugins)
-  }
-
-	//cList.Print("Available Tools:")
-	//PrintTools(u)
-}
-
-func PrintAgent(a *agent.Agent) {
-  cLabel := color.New(color.FgYellow, color.Bold)
-  cValue := color.New(color.FgWhite)
-
-  cLabel.Print("Agent: ")
-  cValue.Println(a.Name)
-  cLabel.Print("Model: ")
-  cValue.Println(a.Model)
-  // Print tools, etc. as you wish
-	// fm
-	//fmt.Println(a.Registry.String())
-	PrintTools(a)
-}
-
-
-func PrintTools(a *agent.Agent) {
-	cLabel := color.New(color.FgYellow, color.Bold)
-	cValue := color.New(color.FgGreen)
-
-	cLabel.Println("Tools")
-	cValue.Println(a.Registry)
-
-}
-
 // Help prints all App interface methods except Init, without return types.
 func PrintHelp() {
     iface := reflect.TypeOf((*app.App)(nil)).Elem()
@@ -125,13 +90,142 @@ func PrintHelp() {
     fmt.Println()
 }
 
+func CurrentUser(t TUIApp) error {
+  u := t.App.User()
+  cLabel := color.New(color.FgCyan, color.Bold)
+  cValue := color.New(color.FgWhite)
+  cList  := color.New(color.FgMagenta, color.Bold)
 
-func PrintAgents(list []user.AgentMeta) {
-    if len(list) == 0 {
-        fmt.Println("  (no agents)")
-        return
-    }
-    for _, m := range list {
-        fmt.Printf("  - %s (model=%s)\n", m.Name, m.Model)
-    }
+  cLabel.Print("Current User: ")
+  cValue.Println(u.Name)
+
+  cLabel.Print("Default Agent: ")
+  if u.DefaultAgent != nil {
+    cValue.Println(u.DefaultAgent.Name)
+  } else {
+    cValue.Println("<none>")
+  }
+
+  cList.Println("Available Agents:")
+  for _, meta := range u.Agents {
+    fmt.Printf("  - %s (plugins: %v)\n", meta.Name, meta.Plugins)
+  }
+  return nil
+}
+
+func Users(t TUIApp) error {
+  list := t.App.Users()
+  fmt.Fprintln(t.Out, "Available Users:")
+  for _, name := range list {
+    fmt.Fprintf(t.Out, "  %s\n", name)
+  }
+  return nil
+}
+
+func Agent(t TUIApp) error {
+  a := t.App.Agent()
+
+	if a == nil {
+		fmt.Println(t.Out, "No agent loaded. Please load an agent.")
+		return nil
+	}
+  //fmt.Fprintf(t.Out, "Current agent: %s (%s)\n", a.Name, a.Model)
+  cLabel := color.New(color.FgYellow, color.Bold)
+  cValue := color.New(color.FgWhite)
+
+  cLabel.Print("Agent: ")
+  cValue.Println(a.Name)
+  cLabel.Print("Model: ")
+  cValue.Println(a.Model)
+	Tools(t)
+  return nil
+}
+
+func Agents(t TUIApp) error {
+  metas := t.App.Agents()
+  fmt.Fprintln(t.Out, "Agents:")
+  for _, m := range metas {
+    fmt.Fprintf(t.Out, "  %s\t%s\n", m.Name, m.Model)
+  }
+  return nil
+}
+
+func Tools(t TUIApp) error {
+  tools := t.App.Tools()
+  //fmt.Fprintln(t.Out, "Tools:")
+
+	cLabel := color.New(color.FgYellow, color.Bold)
+	cValue := color.New(color.FgGreen)
+	cValueDesc := color.New(color.FgWhite)
+
+
+	cLabel.Println("Tools")
+  for _, tool := range tools {
+    cValue.Fprintf(t.Out, "  %s\t", tool.Name)
+    cValueDesc.Fprintf(t.Out, "  %s\t\n", tool.Description)
+  }
+
+  return nil
+}
+
+
+// Status prints the current user and agent names.
+func PrintStatus(t TUIApp) error {
+  //s := t.App
+  u, a := t.App.User(), t.App.Agent()
+
+  cLabel := color.New(color.FgCyan, color.Bold)
+  cValue := color.New(color.FgWhite)
+
+  // if you want to keep using t.Out rather than passing it around:
+  if _, err := cLabel.Fprint(t.Out, "Current User:  "); err != nil {
+    return err
+  }
+  if _, err := cValue.Fprintln(t.Out, u.Name); err != nil {
+    return err
+  }
+  if _, err := cLabel.Fprint(t.Out, "Current Agent: "); err != nil {
+    return err
+  }
+  if _, err := cValue.Fprintln(t.Out, a.Name); err != nil {
+    return err
+  }
+  return nil
+}
+
+// UnloadUser calls the core UnloadUser and reports success/failure.
+func UnloadUser(t TUIApp) error {
+  err := t.App.UnloadUser()
+  if err != nil {
+    // print in red
+    color.New(color.FgRed).Fprintf(t.Err, "error unloading user: %v\n", err)
+    return err
+  }
+  color.New(color.FgGreen).Fprintln(t.Out, "✓ user unloaded")
+  return nil
+}
+
+// UnloadAgent calls the core UnloadAgent and reports success/failure.
+func UnloadAgent(t TUIApp) error {
+  err := t.App.UnloadAgent()
+  if err != nil {
+    color.New(color.FgRed).Fprintf(t.Err, "error unloading agent: %v\n", err)
+    return err
+  }
+  color.New(color.FgGreen).Fprintln(t.Out, "✓ agent unloaded")
+  return nil
+}
+
+
+
+// clearScreen emits the ANSI codes to clear the terminal + home the cursor
+func (t TUIApp) clearScreen() {
+   fmt.Fprint(t.Out, "\x1b[2J\x1b[H")
+}
+
+// Refresh clears the screen, reprints the logo, and then the status panel
+func (t TUIApp) Refresh() error {
+   t.clearScreen()
+   PrintLogo()
+   return PrintStatus(t)
 }

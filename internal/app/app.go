@@ -22,7 +22,10 @@ type DefaultApp struct {
 	agent *agent.Agent
 }
 
-func NewApp() App { return &DefaultApp{} }
+// NewApp returns the concrete implementation.
+func NewApp() App {
+  return &DefaultApp{}
+}
 
 func (a *DefaultApp) Init() error {
   cfgDir := "configs"
@@ -164,7 +167,11 @@ func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
 
 // Tools returns the slice of registered tools.
 func (a *DefaultApp) Tools() []tools.Tool {
-    return a.agent.Tools()
+	if a.agent == nil{
+		fmt.Println("No Agent loaded")
+		//return fmt.Errorf("no agent loaded")
+	}
+  return a.agent.Tools()
 }
 
 func (a *DefaultApp) Agents() []user.AgentMeta {
@@ -174,4 +181,53 @@ func (a *DefaultApp) Agents() []user.AgentMeta {
     }
     // simply return the slice of AgentMeta from the loaded user
     return a.user.Agents
+}
+
+
+
+// CreateAgent will add a new agent entry to the currently
+// loaded user’s TOML config and then refresh the in‐memory User.
+func (a *DefaultApp) CreateAgent(meta AgentMeta) error {
+  if a.user == nil {
+    return fmt.Errorf("no user loaded")
+  }
+
+  // Path to the user’s TOML file
+  userFile := filepath.Join("configs", "users", a.user.Name+".toml")
+
+  // 1) decode existing file into a struct that mirrors your on‐disk layout
+  var cfg struct {
+    Name         string          `toml:"name"`
+    DefaultAgent string          `toml:"default_agent"`
+    Agents       []user.AgentMeta `toml:"agents"`
+  }
+  if _, err := toml.DecodeFile(userFile, &cfg); err != nil {
+    return fmt.Errorf("decode %s: %w", userFile, err)
+  }
+
+  // 2) append the new agent meta (convert our app.AgentMeta → user.AgentMeta)
+  cfg.Agents = append(cfg.Agents, user.AgentMeta{
+    Name:    meta.Name,
+    Model:   meta.Model,
+    Plugins: meta.ToolPaths,
+  })
+
+  // 3) re‐write the TOML file (truncating)
+  f, err := os.Create(userFile)
+  if err != nil {
+    return fmt.Errorf("rewrite %s: %w", userFile, err)
+  }
+  defer f.Close()
+  enc := toml.NewEncoder(f)
+  if err := enc.Encode(cfg); err != nil {
+    return fmt.Errorf("encode %s: %w", userFile, err)
+  }
+
+  // 4) re‐load the user so that a.user.Agents is refreshed
+  u, err := user.NewUser(a.user.Name)
+  if err != nil {
+    return fmt.Errorf("reload user %q: %w", a.user.Name, err)
+  }
+  a.user = u
+  return nil
 }
