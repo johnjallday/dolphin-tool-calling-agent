@@ -264,3 +264,68 @@ func (a *DefaultApp) SwitchAgent(name string) error {
 
     return nil
 }
+
+func (a *DefaultApp) EditAgent(oldName string, meta AgentMeta) error {
+    if a.user == nil {
+        return fmt.Errorf("no user loaded")
+    }
+    userFile := filepath.Join("configs", "users", a.user.Name+".toml")
+
+    // Decode the existing user config
+    var cfg struct {
+        Name         string            `toml:"name"`
+        DefaultAgent string            `toml:"default_agent"`
+        Agents       []user.AgentMeta  `toml:"agents"`
+    }
+    if _, err := toml.DecodeFile(userFile, &cfg); err != nil {
+        return fmt.Errorf("decode %s: %w", userFile, err)
+    }
+
+    // Find & update the matching agent
+    found := false
+    for i := range cfg.Agents {
+        if cfg.Agents[i].Name == oldName {
+            cfg.Agents[i] = user.AgentMeta{
+                Name:    meta.Name,
+                Model:   meta.Model,
+                Plugins: meta.ToolPaths,
+            }
+            // If you also want to rename the default_agent setting:
+            if cfg.DefaultAgent == oldName {
+                cfg.DefaultAgent = meta.Name
+            }
+            found = true
+            break
+        }
+    }
+    if !found {
+        return fmt.Errorf("agent %q not found for user %q", oldName, a.user.Name)
+    }
+
+    // Rewrite the TOML file
+    f, err := os.Create(userFile)
+    if err != nil {
+        return fmt.Errorf("rewrite %s: %w", userFile, err)
+    }
+    defer f.Close()
+    enc := toml.NewEncoder(f)
+    if err := enc.Encode(cfg); err != nil {
+        return fmt.Errorf("encode %s: %w", userFile, err)
+    }
+
+    // Reload the in-memory user so a.user.Agents is fresh
+    u, err := user.NewUser(a.user.Name)
+    if err != nil {
+        return fmt.Errorf("reload user %q: %w", a.user.Name, err)
+    }
+    a.user = u
+
+    // If we had that agent loaded, switch to the new name
+    if a.agent != nil && a.agent.Name == oldName {
+        if err := a.LoadAgent(meta.Name); err != nil {
+            return fmt.Errorf("reload current agent: %w", err)
+        }
+    }
+
+    return nil
+}

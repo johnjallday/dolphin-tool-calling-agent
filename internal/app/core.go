@@ -27,6 +27,7 @@ type App interface {
 	LoadUser(username string) error
 	SwitchUser(name string) error
 	LoadAgent(agentName string) error
+	EditAgent(oldName string, meta AgentMeta) error
 	SwitchAgent(name string) error
 	UnloadUser() error
 	UnloadAgent() error

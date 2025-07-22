@@ -24,7 +24,7 @@ func (t *TUIApp) StatusCmd() error {
     case userLoaded && !agentLoaded:
         cmdList = "unload-user | load-agent | switch-user | users | agents |help"
     default: // agentLoaded (with or without user)
-        cmdList = "tools | unload-user | unload-agent | switch-user | switch-agent | agents | help"
+        cmdList = "tools | unload-user | unload-agent | switch-user | switch-agent | agents | edit-agent | help"
     }
 
     cLabel := color.New(color.FgCyan, color.Bold)

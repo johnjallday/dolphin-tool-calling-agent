@@ -17,6 +17,7 @@ import (
 type TUIApp struct {
     Ctx context.Context
     App app.App
+		In  io.Reader
     Out io.Writer
     Err io.Writer
     Rl  *liner.State

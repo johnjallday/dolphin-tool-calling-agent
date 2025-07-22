@@ -39,6 +39,7 @@ func main() {
   t := &tui.TUIApp{
     Ctx: context.Background(),
     App: application,
+		In:  os.Stdin, 
     Out: os.Stdout,
     Err: os.Stderr,
     Rl:  rl,
@@ -59,7 +60,7 @@ func main() {
 func buildCommands() ([]string, map[string]tui.CmdFunc) {
   helpKeys := []string{
     "user", "users", "agent", "agents", "tools",
-    "create-agent", "load-user", "load-agent", "unload-user", "unload-agent",
+    "create-agent", "load-user", "load-agent", "unload-user", "edit-agent", "unload-agent",
     "switch-user", "switch-agent",
     "help", "clear", "exit", "quit",
   }
@@ -71,6 +72,7 @@ func buildCommands() ([]string, map[string]tui.CmdFunc) {
     "agents":       tui.AgentsCmd,
     "tools":        tui.ToolsCmd,
     "create-agent": tui.CreateAgentCmd,
+		"edit-agent":		tui.EditAgentCmd,
     "load-agent":   tui.LoadAgentCmd,
     "load-user":   	tui.LoadUserCmd,
     "unload-user":  tui.UnloadUserCmd,

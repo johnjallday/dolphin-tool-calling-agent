@@ -2,9 +2,12 @@ package tui
 
 import (
 		"fmt"
+		"bufio"
     "github.com/fatih/color"
 		"strings"
     "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
+    "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+		// "os"
 )
 
 
@@ -230,4 +233,101 @@ func ToolsCmd(t *TUIApp, _ []string) error {
         cDesc.Fprintf(t.Out, "%s\n", tool.Description)
     }
     return nil
+}
+
+// EditAgentCmd prompts the user to update an existing agent’s name, model,
+// and tool paths. Usage: edit-agent <old-name>
+func EditAgentCmd(t *TUIApp, args []string) error {
+    if len(args) != 1 {
+        fmt.Fprintln(t.Out, "usage: edit-agent <agent-name>")
+        return nil
+    }
+    oldName := args[0]
+
+    // find the existing agent
+    var current user.AgentMeta
+    found := false
+    for _, m := range t.App.Agents() {
+        if m.Name == oldName {
+            current = m
+            found = true
+            break
+        }
+    }
+    if !found {
+        return fmt.Errorf("agent %q not found", oldName)
+    }
+
+    // Print current info
+    cyan := color.New(color.FgCyan, color.Bold)
+    white := color.New(color.FgWhite)
+    cyan.Fprint(t.Out, "Editing Agent: ")
+    white.Fprintln(t.Out, current.Name)
+    cyan.Fprint(t.Out, "  Model: ")
+    white.Fprintln(t.Out, current.Model)
+    cyan.Fprint(t.Out, "  Tools: ")
+    white.Fprintln(t.Out, strings.Join(current.Plugins, ", "))
+
+    reader := bufio.NewReader(t.In) // ← now t.In is defined
+
+    // prompt for new name
+    fmt.Fprintf(t.Out, "New name [%s]: ", current.Name)
+    line, err := reader.ReadString('\n')
+    if err != nil {
+        return err
+    }
+    line = strings.TrimSpace(line)
+    newName := current.Name
+    if line != "" {
+        newName = line
+    }
+
+    // prompt for new model
+    fmt.Fprintf(t.Out, "New model [%s]: ", current.Model)
+    line, err = reader.ReadString('\n')
+    if err != nil {
+        return err
+    }
+    line = strings.TrimSpace(line)
+    newModel := current.Model
+    if line != "" {
+        newModel = line
+    }
+
+    // prompt for new tools
+    fmt.Fprintf(t.Out,
+        "New tool paths (comma-separated) [%s]: ",
+        strings.Join(current.Plugins, ","),
+    )
+    line, err = reader.ReadString('\n')
+    if err != nil {
+        return err
+    }
+    line = strings.TrimSpace(line)
+
+    var newTools []string
+    if line == "" {
+        newTools = current.Plugins
+    } else {
+        for _, p := range strings.Split(line, ",") {
+            if t := strings.TrimSpace(p); t != "" {
+                newTools = append(newTools, t)
+            }
+        }
+    }
+
+    // build the app.AgentMeta and call EditAgent
+    updated := app.AgentMeta{
+        Name:      newName,
+        Model:     newModel,
+        ToolPaths: newTools,
+    }
+    if err := t.App.EditAgent(oldName, updated); err != nil {
+        return fmt.Errorf("edit agent: %w", err)
+    }
+
+    color.New(color.FgGreen).
+        Fprintln(t.Out, "✓ agent updated:", oldName, "→", newName)
+
+    return t.Refresh()
 }
