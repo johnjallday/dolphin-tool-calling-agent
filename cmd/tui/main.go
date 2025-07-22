@@ -59,7 +59,7 @@ func main() {
 func buildCommands() ([]string, map[string]tui.CmdFunc) {
   helpKeys := []string{
     "user", "users", "agent", "agents", "tools",
-    "create-agent", "load-agent", "unload-user", "unload-agent",
+    "create-agent", "load-user", "load-agent", "unload-user", "unload-agent",
     "switch-user", "switch-agent",
     "help", "clear", "exit", "quit",
   }
@@ -79,6 +79,9 @@ func buildCommands() ([]string, map[string]tui.CmdFunc) {
     "switch-agent": tui.SwitchAgentCmd,
 
     "help": func(t *tui.TUIApp, _ []string) error {
+			fmt.Fprintln(t.Out, "Try typing one of the available commands to get/execute the information you need.")
+			fmt.Fprintln(t.Out, "If you have your agent set up then try prompting anything else.")
+			fmt.Fprintln(t.Out, "")
       fmt.Fprintln(t.Out, "Available commands:")
       for _, k := range helpKeys {
         fmt.Fprintf(t.Out, "  %s\n", k)

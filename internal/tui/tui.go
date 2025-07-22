@@ -4,8 +4,8 @@ import (
     "context"
     "fmt"
     "io"
-    "io/fs"
-    "path/filepath"
+    //"io/fs"
+    //"path/filepath"
     "reflect"
     "strings"
 
@@ -53,14 +53,17 @@ func (t *TUIApp) RunInteractiveShell(
     }
 
     parts := strings.Fields(line)
-    cmd, args := parts[0], parts[1:]
+    rawCmd, args := parts[0], parts[1:]
+
+    // Normalize to lower-case so "User", "USER", "uSeR" all map to "user"
+    cmd := strings.ToLower(rawCmd)
 
     if fn, ok := commands[cmd]; ok {
       if err := fn(t, args); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
-
     } else {
+      // fallback → send to LLM/chat
       if err := t.App.SendMessage(t.Ctx, line); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
@@ -97,25 +100,7 @@ func (t *TUIApp) PrintLogo(){
 }
 
 // PrintToolPacks walks “./plugins” looking for .so files.
-func PrintToolPacks() {
-    const root = "./plugins/"
-    filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-        if err != nil {
-            fmt.Printf("error accessing %q: %v\n", path, err)
-            return nil
-        }
-        if d.Name() == ".DS_Store" {
-            if d.IsDir() {
-                return filepath.SkipDir
-            }
-            return nil
-        }
-        if !d.IsDir() && filepath.Ext(d.Name()) == ".so" {
-            fmt.Println(path)
-        }
-        return nil
-    })
-}
+
 
 // PrintHelp uses reflection to list all methods on app.App.
 func PrintHelp() {
