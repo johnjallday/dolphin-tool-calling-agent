@@ -6,9 +6,9 @@ import (
   "fmt"
   "path/filepath"
   "plugin"
-	//"sort"
-
-  //"github.com/fatih/color"
+	"io/fs"
+	"errors"
+	"encoding/json"
 
   "github.com/openai/openai-go"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
@@ -21,29 +21,44 @@ type Agent struct {
   Registry *registry.ToolRegistry
   client   openai.Client
   params   openai.ChatCompletionNewParams
+	systemPrompt openai.ChatCompletionMessageParamUnion
 }
 
 func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   client := openai.NewClient()
-  a := &Agent{
-    Name:     name,
-    Model:    model,
-    client:   client,
-    Registry: registry.NewToolRegistry(),
-    params: openai.ChatCompletionNewParams{
-      Messages:    []openai.ChatCompletionMessageParamUnion{},
-      Model:       model,
-      Temperature: openai.Float(0),
-      Seed:        openai.Int(0),
-    },
+
+  // define your system prompt once, up front
+  sys := openai.SystemMessage(
+    `You are only allowed to respond by invoking one of the available functions.
+     You must never return plain text directly. 
+		If you can't call any tools just say you don't have the necessary tools to execute`)
+
+  // seed params.Messages with the system prompt
+  params := openai.ChatCompletionNewParams{
+    Messages:    []openai.ChatCompletionMessageParamUnion{sys},
+    Model:       model,
+    Temperature: openai.Float(0),
+    Seed:        openai.Int(0),
   }
 
+  a := &Agent{
+    Name:         name,
+    Model:        model,
+    client:       client,
+    Registry:     registry.NewToolRegistry(),
+    params:       params,
+    systemPrompt: sys,
+  }
+
+  // load plugins (recursive search logic omitted for brevity)
   cwd, _ := os.Getwd()
   pluginDir := filepath.Join(cwd, "plugins")
-
   for _, pname := range pluginNames {
-    path := filepath.Join(pluginDir, pname+".so")
-    plug, err := plugin.Open(path)
+    soPath, err := locatePlugin(pluginDir, pname+".so")
+    if err != nil {
+      return nil, err
+    }
+    plug, err := plugin.Open(soPath)
     if err != nil {
       return nil, fmt.Errorf("open plugin %q: %w", pname, err)
     }
@@ -65,14 +80,50 @@ func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   return a, nil
 }
 
+// findPluginFile walks pluginDir looking for a file named pluginFileName.
+// It returns the first match or an error if none are found.
+func locatePlugin(pluginDir, pluginFileName string) (string, error) {
+  var (
+    foundPath    string
+    sentinelErr  = errors.New("found")
+  )
+
+  err := filepath.WalkDir(pluginDir, func(path string, d fs.DirEntry, err error) error {
+    if err != nil {
+      return err
+    }
+    if !d.IsDir() && d.Name() == pluginFileName {
+      foundPath = path
+      return sentinelErr
+    }
+    return nil
+  })
+
+  // If we bailed out early with sentinelErr, clear it
+  if err == sentinelErr {
+    err = nil
+  }
+  if err != nil {
+    return "", fmt.Errorf("walking %q: %w", pluginDir, err)
+  }
+  if foundPath == "" {
+    return "", fmt.Errorf("plugin %q not found under %s", pluginFileName, pluginDir)
+  }
+  return foundPath, nil
+}
+
 
 func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
-  a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
+  //a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
+	a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
+
+
   cmp, err := a.client.Chat.Completions.New(ctx, a.params)
   if err != nil {
     return err
   }
-  assistant := cmp.Choices[0].Message
+	//a.DumpMessages()
+	assistant := cmp.Choices[0].Message
   a.params.Messages = append(a.params.Messages, assistant.ToParam())
 
   if len(assistant.ToolCalls) == 0 {
@@ -124,3 +175,14 @@ func (a *Agent) String() string {
 
 
 
+// DumpMessages will pretty-print your prompt slice
+func (a *Agent) DumpMessages() {
+  b, err := json.MarshalIndent(a.params.Messages, "", "  ")
+  if err != nil {
+    fmt.Println("❌ failed to marshal messages:", err)
+    return
+  }
+  fmt.Println("=== PARAMS.MESSAGES ===")
+  fmt.Println(string(b))
+  fmt.Println("=======================")
+}
