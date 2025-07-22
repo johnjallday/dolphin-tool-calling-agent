@@ -17,13 +17,13 @@ git clone https://github.com/johnjallday/dolphin-tool-calling-agent.git
 ## Build
 To Build an REPL version
 ```bash
-go build -o dolphin_repl ./cmd/repl
+go build -o dolphin_repl ./cmd/tui
 ./dolphin_repl
 ```
 
 Or simply
 ```bash
-go run ./cmd/repl
+go run ./cmd/tui
 ```
 
 ## Usage

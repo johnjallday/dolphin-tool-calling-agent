@@ -25,9 +25,10 @@ type App interface {
   SendMessage(context.Context, string) error
 	CreateAgent(meta AgentMeta) error
 	LoadUser(username string) error
+	SwitchUser(name string) error
 	LoadAgent(agentName string) error
+	SwitchAgent(name string) error
 	UnloadUser() error
 	UnloadAgent() error
 	Tools() []tools.Tool
-	//Status()
 }

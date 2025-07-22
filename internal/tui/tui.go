@@ -22,6 +22,58 @@ type TUIApp struct {
     Rl  *liner.State
 }
 
+type CmdFunc func(t *TUIApp, args []string) error
+
+func (t *TUIApp) RunInteractiveShell(
+  helpKeys []string,
+  commands map[string]CmdFunc,
+) {
+  for {
+    line, err := t.Rl.Prompt("> ")
+    if err != nil {
+      switch err {
+      case liner.ErrPromptAborted:
+        fmt.Fprintln(t.Out, "\nexit on Ctrl-C")
+        return
+      case io.EOF:
+        fmt.Fprintln(t.Out, "\nGoodbye!")
+        return
+      default:
+        fmt.Fprintln(t.Err, "prompt error:", err)
+        return
+      }
+    }
+
+    line = strings.TrimSpace(line)
+    if line == "" {
+      if err := t.Refresh(); err != nil {
+        fmt.Fprintln(t.Err, "refresh error:", err)
+      }
+      continue
+    }
+
+    parts := strings.Fields(line)
+    cmd, args := parts[0], parts[1:]
+
+    if fn, ok := commands[cmd]; ok {
+      if err := fn(t, args); err != nil {
+        fmt.Fprintln(t.Err, "ERROR:", err)
+      }
+      if cmd != "tools" {
+        if err := t.Refresh(); err != nil {
+          fmt.Fprintln(t.Err, "refresh error:", err)
+        }
+      }
+    } else {
+      if err := t.App.SendMessage(t.Ctx, line); err != nil {
+        fmt.Fprintln(t.Err, "ERROR:", err)
+      }
+    }
+
+    t.Rl.AppendHistory(line)
+  }
+}
+
 // clearScreen emits ANSI codes to clear the terminal + move cursor home.
 func (t *TUIApp) clearScreen() {
     fmt.Fprint(t.Out, "\x1b[2J\x1b[H")
@@ -88,89 +140,6 @@ func PrintHelp() {
     fmt.Println()
 }
 
-// UserCmd prints the current user and their agents.
-func UserCmd(t *TUIApp, _ []string) error {
-    u := t.App.User()
-    cLabel := color.New(color.FgCyan, color.Bold)
-    cValue := color.New(color.FgWhite)
-    cList := color.New(color.FgMagenta, color.Bold)
-
-    cLabel.Print("Current User: ")
-    cValue.Println(u.Name)
-
-    cLabel.Print("Default Agent: ")
-    if u.DefaultAgent != nil {
-        cValue.Println(u.DefaultAgent.Name)
-    } else {
-        cValue.Println("<none>")
-    }
-
-    cList.Println("Available Agents:")
-    for _, meta := range u.Agents {
-        fmt.Fprintf(t.Out, "  - %s (plugins: %v)\n", meta.Name, meta.Plugins)
-    }
-    return nil
-}
-
-// UsersCmd lists all users.
-func UsersCmd(t *TUIApp, _ []string) error {
-    fmt.Fprintln(t.Out, "Available Users:")
-    for _, name := range t.App.Users() {
-        fmt.Fprintf(t.Out, "  %s\n", name)
-    }
-    return nil
-}
-
-// AgentCmd prints the current agent (or a warning if none) and its tools.
-func AgentCmd(t *TUIApp, _ []string) error {
-    a := t.App.Agent()
-    if a == nil {
-        fmt.Fprintln(t.Out, "No agent loaded. Please load an agent.")
-        return nil
-    }
-    cLabel := color.New(color.FgYellow, color.Bold)
-    cValue := color.New(color.FgWhite)
-
-    cLabel.Print("Agent: ")
-    cValue.Println(a.Name)
-    cLabel.Print("Model: ")
-    cValue.Println(a.Model)
-
-    return ToolsCmd(t, nil)
-}
-
-// AgentsCmd lists all agents for the current user.
-func AgentsCmd(t *TUIApp, _ []string) error {
-    fmt.Fprintln(t.Out, "Agents:")
-    for _, m := range t.App.Agents() {
-        fmt.Fprintf(t.Out, "  %s\t%s\n", m.Name, m.Model)
-    }
-    return nil
-}
-
-// ToolsCmd lists all tools on the current agent.
-func ToolsCmd(t *TUIApp, _ []string) error {
-    // guard against no‐agent
-    if t.App.Agent() == nil {
-        fmt.Fprintln(t.Out, "No agent loaded")
-        return nil
-    }
-
-    cLabel := color.New(color.FgYellow, color.Bold)
-    cVal   := color.New(color.FgGreen)
-    cDesc  := color.New(color.FgWhite)
-
-    cLabel.Println("Tools:")
-		if t.App.Tools() == nil {
-			fmt.Println("No Agent Loaded: Load an Agent")
-		}
-
-    for _, tool := range t.App.Tools() {
-        cVal.Fprintf(t.Out, "  %s\t", tool.Name)
-        cDesc.Fprintf(t.Out, "%s\n", tool.Description)
-    }
-    return nil
-}
 
 // PrintStatus is used by Refresh() to show user+agent at top.
 func PrintStatus(t *TUIApp) error {
@@ -184,57 +153,3 @@ func PrintStatus(t *TUIApp) error {
     cValue.Fprintln(t.Out, a.Name)
     return nil
 }
-
-// UnloadUserCmd unloads the current user and refreshes.
-func UnloadUserCmd(t *TUIApp, _ []string) error {
-    if err := t.App.UnloadUser(); err != nil {
-        // print error to stderr and bail
-        color.New(color.FgRed).
-            Fprintln(t.Err, "error unloading user:", err)
-        return err
-    }
-    // success!
-    color.New(color.FgGreen).Fprintln(t.Out, "✓ user unloaded")
-    return t.Refresh()
-}
-
-// UnloadAgentCmd unloads the current agent and refreshes.
-func UnloadAgentCmd(t *TUIApp, _ []string) error {
-    if err := t.App.UnloadAgent(); err != nil {
-        color.New(color.FgRed).Fprintf(t.Err, "error unloading agent: %v\n", err)
-        return err
-    }
-    color.New(color.FgGreen).Fprintln(t.Out, "✓ agent unloaded")
-    return t.Refresh()
-}
-
-// CreateAgentCmd implements “create-agent <name> <model> [tool1,tool2,…]” then refreshes.
-func CreateAgentCmd(t *TUIApp, args []string) error {
-    if len(args) < 2 {
-        fmt.Fprintln(t.Out, "usage: create-agent <name> <model> [tool1,tool2,…]")
-        return nil
-    }
-    name, model := args[0], args[1]
-
-    var paths []string
-    if len(args) > 2 && args[2] != "" {
-        paths = strings.Split(args[2], ",")
-    }
-
-    meta := app.AgentMeta{
-        Name:      name,
-        Model:     model,
-        ToolPaths: paths,
-    }
-    if err := t.App.CreateAgent(meta); err != nil {
-        return fmt.Errorf("create agent: %w", err)
-    }
-
-    fmt.Fprintf(t.Out,
-        "✅ Agent %q (model=%q) created with %d tool(s)\n",
-        name, model, len(paths),
-    )
-    return t.Refresh()
-}
-
-

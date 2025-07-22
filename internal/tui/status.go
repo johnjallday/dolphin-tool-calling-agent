@@ -16,11 +16,15 @@ func (t *TUIApp) StatusCmd() error {
     var cmdList string
     switch {
     case !userLoaded && !agentLoaded:
-        cmdList = "load-user | load-agent | users | create-agent"
+        cmdList = "load-user | users | create-agent | help"
+				fmt.Fprintln(t.Out)
+				if err := UsersCmd(t, []string{}); err != nil {
+            return fmt.Errorf("unable to list users: %w", err)
+        }
     case userLoaded && !agentLoaded:
-        cmdList = "unload-user | load-agent | switch-user | users | agents"
+        cmdList = "unload-user | load-agent | switch-user | users | agents |help"
     default: // agentLoaded (with or without user)
-        cmdList = "tools | unload-user | unload-agent | switch-agent | help"
+        cmdList = "tools | unload-user | unload-agent | switch-user | switch-agent | agents | help"
     }
 
     cLabel := color.New(color.FgCyan, color.Bold)

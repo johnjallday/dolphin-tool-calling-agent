@@ -125,6 +125,20 @@ func (a *DefaultApp) LoadAgent(agentName string) error {
   return nil
 }
 
+func (a *DefaultApp) SwitchUser(name string) error {
+    // if there’s already a user, unload them
+    if a.User != nil {
+        if err := a.UnloadUser(); err != nil {
+            return fmt.Errorf("could not unload existing user: %w", err)
+        }
+    }
+    // now load the new one
+    if err := a.LoadUser(name); err != nil {
+        return fmt.Errorf("could not load user %q: %w", name, err)
+    }
+    return nil
+}
+
 func (a *DefaultApp) UnloadAgent() error {
   if a.agent == nil {
     return fmt.Errorf("no agent loaded")
@@ -215,4 +229,38 @@ func (a *DefaultApp) CreateAgent(meta AgentMeta) error {
   }
   a.user = u
   return nil
+}
+
+// SwitchAgent switches the current agent to one of the already‐created agents
+// for the current user (loading its .so plugins under the hood).
+func (a *DefaultApp) SwitchAgent(name string) error {
+    // pull the loaded user back out via the method
+    u := a.User()
+    if u == nil {
+        return fmt.Errorf("no user loaded")
+    }
+
+    // make sure the named agent exists in u.Agents
+    var found bool
+    for _, m := range u.Agents {
+        if m.Name == name {
+            found = true
+            break
+        }
+    }
+    if !found {
+        return fmt.Errorf("agent %q not found for user %q", name, u.Name)
+    }
+
+    // unload the prior agent (if any)
+    if err := a.UnloadAgent(); err != nil {
+        return fmt.Errorf("unload existing agent: %w", err)
+    }
+
+    // load the new agent
+    if err := a.LoadAgent(name); err != nil {
+        return fmt.Errorf("load agent %q: %w", name, err)
+    }
+
+    return nil
 }
