@@ -59,11 +59,7 @@ func (t *TUIApp) RunInteractiveShell(
       if err := fn(t, args); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
-      if cmd != "tools" {
-        if err := t.Refresh(); err != nil {
-          fmt.Fprintln(t.Err, "refresh error:", err)
-        }
-      }
+
     } else {
       if err := t.App.SendMessage(t.Ctx, line); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)

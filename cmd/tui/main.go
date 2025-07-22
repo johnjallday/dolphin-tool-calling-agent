@@ -72,6 +72,7 @@ func buildCommands() ([]string, map[string]tui.CmdFunc) {
     "tools":        tui.ToolsCmd,
     "create-agent": tui.CreateAgentCmd,
     "load-agent":   tui.LoadAgentCmd,
+    "load-user":   	tui.LoadUserCmd,
     "unload-user":  tui.UnloadUserCmd,
     "unload-agent": tui.UnloadAgentCmd,
     "switch-user":  tui.SwitchUserCmd,
