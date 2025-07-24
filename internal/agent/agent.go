@@ -20,19 +20,29 @@ type Agent struct {
   Model    string
   Registry *registry.ToolRegistry
   client   openai.Client
+	history []ChatMessage
   params   openai.ChatCompletionNewParams
 	systemPrompt openai.ChatCompletionMessageParamUnion
+}
+type ChatMessage struct {
+  Role    string // "user" or "assistant"
+  Content string
 }
 
 func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   client := openai.NewClient()
 
   // define your system prompt once, up front
-  sys := openai.SystemMessage(
-    `You are only allowed to respond by invoking one of the available functions.
-     You must never return plain text directly. 
-		If you can't call any tools just say you don't have the necessary tools to execute`)
+  // sys := openai.SystemMessage(
+  //   `You are only allowed to respond by invoking one of the available functions.
+  //    You must never return plain text directly. 
+  // If you can't call any tools just say you don't have the necessary tools to execute`)
 
+	const sysText = `You are only allowed to respond by invoking one of the available functions.
+	You must never return plain text directly.
+	If you can't call any tools just say you don't have the necessary tools to execute.`
+
+	sys := openai.SystemMessage(sysText)
   // seed params.Messages with the system prompt
   params := openai.ChatCompletionNewParams{
     Messages:    []openai.ChatCompletionMessageParamUnion{sys},
@@ -44,11 +54,15 @@ func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   a := &Agent{
     Name:         name,
     Model:        model,
+		history:      []ChatMessage{
+			{"system", sysText},
+		},
     client:       client,
     Registry:     registry.NewToolRegistry(),
     params:       params,
     systemPrompt: sys,
   }
+
 
   // load plugins (recursive search logic omitted for brevity)
   cwd, _ := os.Getwd()
@@ -114,10 +128,9 @@ func locatePlugin(pluginDir, pluginFileName string) (string, error) {
 
 
 func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
-  //a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
 	a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
-
-
+ 	a.history = append(a.history, ChatMessage{"user", userMessage})
+	//Call the LLM
   cmp, err := a.client.Chat.Completions.New(ctx, a.params)
   if err != nil {
     return err
@@ -125,6 +138,10 @@ func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
 	//a.DumpMessages()
 	assistant := cmp.Choices[0].Message
   a.params.Messages = append(a.params.Messages, assistant.ToParam())
+
+	if assistant.Content != "" {
+    a.history = append(a.history, ChatMessage{"assistant", assistant.Content})
+  }
 
   if len(assistant.ToolCalls) == 0 {
     fmt.Println(assistant.Content)
@@ -140,6 +157,10 @@ func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
   finalMsg := finalResp.Choices[0].Message
   fmt.Println(finalMsg.Content)
   a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
+
+	if finalMsg.Content != "" {
+    a.history = append(a.history, ChatMessage{"assistant", finalMsg.Content})
+  }
   return nil
 }
 
@@ -185,4 +206,11 @@ func (a *Agent) DumpMessages() {
   fmt.Println("=== PARAMS.MESSAGES ===")
   fmt.Println(string(b))
   fmt.Println("=======================")
+}
+
+func (a *Agent) History() []ChatMessage {
+  // copy to prevent callers mutating your internal slice
+  out := make([]ChatMessage, len(a.history))
+  copy(out, a.history)
+  return out
 }

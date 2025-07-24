@@ -27,35 +27,53 @@ func NewApp() App {
   return &DefaultApp{}
 }
 
+
+
 func (a *DefaultApp) Init() error {
   cfgDir := "configs"
-  if err := os.MkdirAll(cfgDir, 0755); err != nil {
-    return fmt.Errorf("create configs folder: %w", err)
+
+  // 1) Ensure configs/users exists
+  usersDir := filepath.Join(cfgDir, "users")
+  if err := os.MkdirAll(usersDir, 0755); err != nil {
+    return fmt.Errorf("mkdir %q: %w", usersDir, err)
   }
 
+  // 2) Ensure plugins folder exists
+  if err := os.MkdirAll("plugins", 0755); err != nil {
+    return fmt.Errorf("mkdir %q: %w", "plugins", err)
+  }
+
+  // 3) Ensure app_setting.toml exists
   settingPath := filepath.Join(cfgDir, "app_setting.toml")
   if _, err := os.Stat(settingPath); err != nil {
     if os.IsNotExist(err) {
       f, err := os.Create(settingPath)
       if err != nil {
-        return fmt.Errorf("create app_setting.toml: %w", err)
+        return fmt.Errorf("create %q: %w", settingPath, err)
       }
       defer f.Close()
-      _, err = f.WriteString("default_user = \"\"\n")
-      return err
+      // initialize with an empty default_user
+      if _, err := f.WriteString("default_user = \"\"\n"); err != nil {
+        return fmt.Errorf("write %q: %w", settingPath, err)
+      }
+    } else {
+      return fmt.Errorf("stat %q: %w", settingPath, err)
     }
-    return fmt.Errorf("stat app_setting.toml: %w", err)
   }
 
+  // 4) Parse it
   var cfg AppConfig
   if _, err := toml.DecodeFile(settingPath, &cfg); err != nil {
-    return fmt.Errorf("parse app_setting.toml: %w", err)
+    return fmt.Errorf("parse %q: %w", settingPath, err)
   }
 
+  // 5) If no default_user is set, just return (no error)
   if cfg.DefaultUser == "" {
-    return fmt.Errorf("default_user not set in %s", settingPath)
+    // no user to load yet – we'll defer to TUI.InitCmd() to bootstrap one
+    return nil
   }
 
+  // 6) Load the default user
   return a.LoadUser(cfg.DefaultUser)
 }
 
@@ -76,6 +94,20 @@ func (a *DefaultApp) Users() []string {
     }
   }
   return names
+}
+
+func (a *DefaultApp) CreateUser(userID string) error {
+  u, err := user.CreateUser(userID)
+  if err != nil {
+    return fmt.Errorf("create user %q: %w", userID, err)
+  }
+  a.user = u
+  a.agent = nil
+
+  // If you also want to persist this as the default in app_setting.toml,
+  // do it here (decode, set default_user = userID, re‐encode).
+
+  return nil
 }
 
 // LoadUser loads the user TOML and then loads the default agent.

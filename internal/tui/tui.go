@@ -4,8 +4,9 @@ import (
     "context"
     "fmt"
     "io"
+		// "os"
     //"io/fs"
-    //"path/filepath"
+    // "path/filepath"
     "reflect"
     "strings"
 
@@ -68,7 +69,7 @@ func (t *TUIApp) RunInteractiveShell(
       if err := t.App.SendMessage(t.Ctx, line); err != nil {
         fmt.Fprintln(t.Err, "ERROR:", err)
       }
-    }
+    		}
 
     t.Rl.AppendHistory(line)
   }

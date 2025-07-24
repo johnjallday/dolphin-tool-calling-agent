@@ -6,7 +6,7 @@ Not all AI fits all. Why not build your own tool?
 
 
 ## Requirement
-Go 1.24 or later
+Go 1.24 or later\n
 OpenAI api key
 
 ## Install

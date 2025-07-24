@@ -7,7 +7,8 @@ import (
 		"strings"
     "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
     "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
-		// "os"
+		"os"
+  	"path/filepath"
 )
 
 
@@ -330,4 +331,80 @@ func EditAgentCmd(t *TUIApp, args []string) error {
         Fprintln(t.Out, "✓ agent updated:", oldName, "→", newName)
 
     return t.Refresh()
+}
+
+// InitCmd ensures configs/users exists, and if there are no .toml users,
+// immediately calls CreateUserCmd to bootstrap the first user.
+func InitCmd(t *TUIApp, args []string) error {
+  usersDir := filepath.Join("configs", "users")
+  if err := os.MkdirAll(usersDir, 0755); err != nil {
+    return fmt.Errorf("mkdir %q: %w", usersDir, err)
+  }
+
+  entries, err := os.ReadDir(usersDir)
+  if err != nil {
+    return fmt.Errorf("read dir %q: %w", usersDir, err)
+  }
+  // look for any .toml files
+  found := false
+  for _, e := range entries {
+    if !e.IsDir() && filepath.Ext(e.Name()) == ".toml" {
+      found = true
+      break
+    }
+  }
+  if !found {
+    // no users yet ⇒ prompt to create one
+    color.New(color.FgYellow).Fprintln(t.Out,
+      "No users found; let's create your first user.")
+    if err := CreateUserCmd(t, nil); err != nil {
+      return fmt.Errorf("bootstrap user: %w", err)
+    }
+  }
+  return nil
+}
+
+// CreateUserCmd prompts the user for a userID, calls App.CreateUser,
+// then optionally SwitchUser to make it the default.
+func CreateUserCmd(t *TUIApp, args []string) error {
+  reader := bufio.NewReader(t.In)
+
+  // 1) ask for user ID
+  fmt.Fprint(t.Out, "Enter new user ID: ")
+  line, err := reader.ReadString('\n')
+  if err != nil {
+    return err
+  }
+  userID := strings.TrimSpace(line)
+  if userID == "" {
+    fmt.Fprintln(t.Out, "aborted: empty user ID")
+    return nil
+  }
+
+  // 2) create it
+  if err := t.App.CreateUser(userID); err != nil {
+    return fmt.Errorf("CreateUser %q: %w", userID, err)
+  }
+  color.New(color.FgGreen).Fprintln(t.Out,
+    "✓ user created:", userID)
+
+  // 3) ask whether to make it default
+  fmt.Fprint(t.Out, "Make this the default user? [Y/n]: ")
+  yn, err := reader.ReadString('\n')
+  if err != nil {
+    return err
+  }
+  yn = strings.TrimSpace(yn)
+  if yn == "" || strings.ToLower(yn[:1]) == "y" {
+    if err := t.App.SwitchUser(userID); err != nil {
+      return fmt.Errorf("SwitchUser %q: %w", userID, err)
+    }
+    color.New(color.FgGreen).Fprintln(t.Out,
+      "✓ set as default user:", userID)
+  } else {
+    color.New(color.FgCyan).Fprintln(t.Out,
+      "Default user left unchanged.")
+  }
+
+  return t.Refresh()
 }

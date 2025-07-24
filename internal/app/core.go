@@ -24,6 +24,7 @@ type App interface {
 	Agents() []user.AgentMeta
   SendMessage(context.Context, string) error
 	CreateAgent(meta AgentMeta) error
+	CreateUser(username string) error
 	LoadUser(username string) error
 	SwitchUser(name string) error
 	LoadAgent(agentName string) error

@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-  // 1) SIGINT
+  // 1) catch SIGINT
   sigCh := make(chan os.Signal, 1)
   signal.Notify(sigCh, syscall.SIGINT)
   go func() {
@@ -23,37 +23,43 @@ func main() {
     os.Exit(1)
   }()
 
-  // 2) app
+  // 2) core application
   application := app.NewApp()
   if err := application.Init(); err != nil {
-    fmt.Fprintf(os.Stderr, "init error: %v\n", err)
+    fmt.Fprintf(os.Stderr, "app.Init error: %v\n", err)
     os.Exit(1)
   }
 
-  // 3) liner
+  // 3) set up liner
   rl := liner.NewLiner()
   defer rl.Close()
   rl.SetCtrlCAborts(true)
 
-  // 4) TUIApp
+  // 4) compose your TUI facade
   t := &tui.TUIApp{
     Ctx: context.Background(),
     App: application,
-		In:  os.Stdin, 
+    In:  os.Stdin,
     Out: os.Stdout,
     Err: os.Stderr,
     Rl:  rl,
   }
 
-  // 5) build commands
-  helpKeys, commands := buildCommands()
+  // ──────────────── NEW ───────────────────
+  // 5) bootstrap users if none exist
+  if err := tui.InitCmd(t, nil); err != nil {
+    fmt.Fprintf(os.Stderr, "initialization error: %v\n", err)
+    os.Exit(1)
+  }
+  // ────────────────────────────────────────
 
-  // 6) initial draw
+  // 6) initial screen draw
   if err := t.Refresh(); err != nil {
     fmt.Fprintln(os.Stderr, "refresh error:", err)
   }
 
-  // 7) enter REPL (now lives in internal/tui)
+  // 7) load up your REPL
+  helpKeys, commands := buildCommands()
   t.RunInteractiveShell(helpKeys, commands)
 }
 
