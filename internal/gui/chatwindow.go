@@ -8,6 +8,9 @@ import (
   "fyne.io/fyne/v2/container"
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
+  "fyne.io/fyne/v2/dialog"
+	"strings"
+
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
@@ -66,37 +69,53 @@ func (cw *ChatWindow) buildUI() {
   // --- 3) center pane: onboarding vs history ---
   var center fyne.CanvasObject
   if len(cw.core.Users()) == 0 {
-    // no users → show onboarding
+    // On‐boarding: ask for username
+    nameEntry := widget.NewEntry()
+    nameEntry.SetPlaceHolder("Enter username")
+
+    createBtn := widget.NewButton("Create User", func() {
+      userID := strings.TrimSpace(nameEntry.Text)
+      if userID == "" {
+        dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
+        return
+      }
+      if err := cw.core.CreateUser(userID); err != nil {
+        dialog.ShowError(err, cw.wnd)
+        return
+      }
+      // rebuild the UI now that we have at least one user
+      cw.buildUI()
+    })
+
     cw.onboardingBox = container.NewVBox(
-      widget.NewLabelWithStyle(
-        "Welcome to Dolphin Chat!",
-        fyne.TextAlignCenter,
-        fyne.TextStyle{Bold: true}),
-      widget.NewLabel("Looks like you haven’t created a user yet."),
-      widget.NewButton("Create First User", func() {
-        cw.openUserWindow()
-        // once that window saves the new user TOML,
-        // tear down and rebuild everything:
-        cw.buildUI()
-      }),
+      widget.NewLabelWithStyle("Welcome to Dolphin Chat!",
+        fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+      widget.NewLabel("Please pick a username to get started:"),
+      nameEntry,
+      createBtn,
     )
     center = cw.onboardingBox
+
   } else {
-    // users exist → show the normal history scroll
+    // … existing history setup …
     cw.historyBox = container.NewVBox()
     cw.historyScroll = container.NewVScroll(cw.historyBox)
     cw.historyScroll.SetMinSize(fyne.NewSize(400, 300))
     center = cw.historyScroll
   }
 
-  // --- 4) assemble and set content ---
   content := container.NewBorder(
-    topBar,    // north
-    bottomBar, // south
-    nil, nil,  // west, east
-    center,    // center
+    cw.topBar(), bottomBar, nil, nil, center,
   )
   cw.wnd.SetContent(content)
+
+  // --- 4) assemble and set content ---
+	cw.wnd.SetContent(container.NewBorder(
+		topBar,    // north
+		bottomBar, // south
+		nil, nil,  // west, east
+		center,    // center
+	))
 
   // --- 5) wire up agent dropdown exactly as before ---
   cw.agentSelect.OnChanged = func(name string) {
