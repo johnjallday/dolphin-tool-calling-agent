@@ -9,11 +9,7 @@ import (
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
 
-	"fyne.io/fyne/v2/dialog"
-	// "fyne.io/fyne/v2/driver"
-
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   //"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
@@ -24,9 +20,6 @@ type ChatWindow struct {
 
  	toolsWin           fyne.Window  // keep a reference so we can focus/close it
   toolsShortcutAdded bool 
- 	agentWin            fyne.Window     // new window handle
-  agentShortcutAdded  bool
-	userWin  fyne.Window
 
   statusLabel *widget.Label
   agentSelect *widget.Select
@@ -83,8 +76,6 @@ func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
     layout.NewSpacer(),
     cw.toolsBtn,
     cw.agentSelect,
- 		widget.NewButton("Edit Agent", func() { cw.openAgentWindow() }),
-		widget.NewButton("User",       func() { cw.openUserWindow() }),
   )
 
   // --- 7) Assemble into window ---
@@ -142,14 +133,14 @@ func (cw *ChatWindow) sendMessage() {
   cw.inputEntry.SetText("")
   cw.wnd.Canvas().Focus(cw.inputEntry)
 
-  fyne.Do(func() {
+  go func() {
     reply, err := cw.core.SendMessage(context.Background(), txt)
     if err != nil {
       cw.appendMessage("Error", err.Error())
       return
     }
     cw.appendMessage("Agent", reply)
-  })
+  }()
 }
 
 func (cw *ChatWindow) appendMessage(who, msg string) {
@@ -161,116 +152,4 @@ func (cw *ChatWindow) appendMessage(who, msg string) {
 
 func (cw *ChatWindow) ShowAndRun() {
   cw.wnd.ShowAndRun()
-}
-
-
-
-
-func (cw *ChatWindow) openAgentWindow() {
-  // 1) If it’s already open just focus it
-  if cw.agentWin != nil {
-    cw.agentWin.RequestFocus()
-    return
-  }
-
-  // 2) Create the agent edit window
-  w := cw.app.NewWindow("Edit Agent")
-  cw.agentWin = w
-  w.SetOnClosed(func() { cw.agentWin = nil })
-
-  // 3) Fetch the live agent pointer
-  ag := cw.core.Agent()
-
-  // 4) Build Entry widgets for Name & Model
-  nameEntry := widget.NewEntry()
-  nameEntry.SetText(ag.Name)
-  modelEntry := widget.NewEntry()
-  modelEntry.SetText(ag.Model)
-
-  // 5) Put them in a Form
-  form := &widget.Form{
-    Items: []*widget.FormItem{
-      {Text: "Name",  Widget: nameEntry},
-      {Text: "Model", Widget: modelEntry},
-    },
-    OnSubmit: func() {
-      // runs on UI thread already
-      ag.Name  = nameEntry.Text
-      ag.Model = modelEntry.Text
-      w.Close()
-    },
-    OnCancel: func() {
-      w.Close()
-    },
-  }
-
-  w.SetContent(container.NewVBox(form))
-  w.Resize(fyne.NewSize(400, 200))
-  w.Show()
-}
-
-
-
-func (cw *ChatWindow) openUserWindow() {
-  if cw.userWin != nil {
-    cw.userWin.RequestFocus()
-    return
-  }
-
-  w := cw.app.NewWindow("Edit User")
-  cw.userWin = w
-  w.SetOnClosed(func() { cw.userWin = nil })
-
-  usr := cw.core.User()  // *app.User
-
-  // Name field
-  nameEntry := widget.NewEntry()
-  nameEntry.SetText(usr.Name)
-
-  // Default-agent dropdown
-  names := make([]string, len(usr.Agents))
-  for i, m := range usr.Agents {
-    names[i] = m.Name
-  }
-  defaultSelect := widget.NewSelect(names, nil)
-  if usr.DefaultAgent != nil {
-    defaultSelect.SetSelected(usr.DefaultAgent.Name)
-  }
-
-  form := &widget.Form{
-    Items: []*widget.FormItem{
-      {Text: "User Name",     Widget: nameEntry},
-      {Text: "Default Agent", Widget: defaultSelect},
-    },
-    OnSubmit: func() {
-      // 1) update the name
-      usr.Name = nameEntry.Text
-
-      // 2) if they chose a default, build it
-      sel := defaultSelect.Selected
-      if sel != "" {
-        for _, m := range usr.Agents {
-          if m.Name == sel {
-            // pass nil for plugins since AgentMeta has none
-            a, err := agent.NewAgent(m.Name, m.Model, nil)
-            if err != nil {
-              dialog.ShowError(err, w)
-              return
-            }
-            usr.DefaultAgent = a
-            break
-          }
-        }
-      }
-
-      w.Close()
-    },
-    OnCancel: func() {
-      w.Close()
-    },
-  }
-
-  w.SetContent(container.NewVBox(form))
-  w.Resize(fyne.NewSize(400, 200))
-  w.Show()
 }
