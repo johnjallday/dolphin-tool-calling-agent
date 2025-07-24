@@ -24,6 +24,7 @@ type Agent struct {
   params   openai.ChatCompletionNewParams
 	systemPrompt openai.ChatCompletionMessageParamUnion
 }
+
 type ChatMessage struct {
   Role    string // "user" or "assistant"
   Content string
@@ -33,11 +34,6 @@ func NewAgent(name, model string, pluginNames []string) (*Agent, error) {
   client := openai.NewClient()
 
   // define your system prompt once, up front
-  // sys := openai.SystemMessage(
-  //   `You are only allowed to respond by invoking one of the available functions.
-  //    You must never return plain text directly. 
-  // If you can't call any tools just say you don't have the necessary tools to execute`)
-
 	const sysText = `You are only allowed to respond by invoking one of the available functions.
 	You must never return plain text directly.
 	If you can't call any tools just say you don't have the necessary tools to execute.`
@@ -126,42 +122,45 @@ func locatePlugin(pluginDir, pluginFileName string) (string, error) {
   return foundPath, nil
 }
 
+func (a *Agent) SendMessage(ctx context.Context, userMessage string) (reply string, err error) {
+  // 1) append the user message
+  a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
+  a.history = append(a.history, ChatMessage{"user", userMessage})
 
-func (a *Agent) SendMessage(ctx context.Context, userMessage string) error {
-	a.params.Messages = append(a.params.Messages, openai.UserMessage(userMessage))
- 	a.history = append(a.history, ChatMessage{"user", userMessage})
-	//Call the LLM
+  // 2) first LLM call
   cmp, err := a.client.Chat.Completions.New(ctx, a.params)
   if err != nil {
-    return err
+    return "", err
   }
-	//a.DumpMessages()
-	assistant := cmp.Choices[0].Message
-  a.params.Messages = append(a.params.Messages, assistant.ToParam())
+  assistant := cmp.Choices[0].Message
 
-	if assistant.Content != "" {
+  // 3) record assistant’s reply (and any tooling)
+  a.params.Messages = append(a.params.Messages, assistant.ToParam())
+  if assistant.Content != "" {
     a.history = append(a.history, ChatMessage{"assistant", assistant.Content})
   }
 
+  // 4) if there are no tool calls, just return the content
   if len(assistant.ToolCalls) == 0 {
-    fmt.Println(assistant.Content)
-    return nil
+    return assistant.Content, nil
   }
 
-  a.dispatchTools(assistant.ToolCalls)
+  // 5) otherwise perform the tool calls
+	a.dispatchTools(assistant.ToolCalls)
 
+  // 6) final LLM call after tools
   finalResp, err := a.client.Chat.Completions.New(ctx, a.params)
   if err != nil {
-    return err
+    return "", err
   }
   finalMsg := finalResp.Choices[0].Message
-  fmt.Println(finalMsg.Content)
-  a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
 
-	if finalMsg.Content != "" {
+  // 7) record & return final content
+  a.params.Messages = append(a.params.Messages, finalMsg.ToParam())
+  if finalMsg.Content != "" {
     a.history = append(a.history, ChatMessage{"assistant", finalMsg.Content})
   }
-  return nil
+  return finalMsg.Content, nil
 }
 
 func (a *Agent) dispatchTools(toolCalls []openai.ChatCompletionMessageToolCall) {

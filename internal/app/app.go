@@ -188,10 +188,12 @@ func (a *DefaultApp) UnloadUser() error {
   return nil
 }
 
-func (a *DefaultApp) SendMessage(ctx context.Context, msg string) error {
+func (a *DefaultApp) SendMessage(ctx context.Context, msg string) (reply string, err error) {
   if a.agent == nil {
-    return fmt.Errorf("no agent loaded")
+    // must return "" for reply when erroring
+    return "", fmt.Errorf("no agent loaded")
   }
+  // forward the two return values from your agent
   return a.agent.SendMessage(ctx, msg)
 }
 

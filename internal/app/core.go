@@ -22,7 +22,7 @@ type App interface {
 	User() *user.User
 	Agent() *agent.Agent
 	Agents() []user.AgentMeta
-  SendMessage(context.Context, string) error
+	SendMessage(ctx context.Context, text string) (reply string, err error)
 	CreateAgent(meta AgentMeta) error
 	CreateUser(username string) error
 	LoadUser(username string) error
