@@ -9,12 +9,7 @@ import (
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
 
-	"fyne.io/fyne/v2/dialog"
-	// "fyne.io/fyne/v2/driver"
-
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
-	"github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
-  //"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
 
 type ChatWindow struct {
@@ -32,81 +27,89 @@ type ChatWindow struct {
   agentSelect *widget.Select
 	toolsBtn    *widget.Button
 
-  historyBox  *fyne.Container
-  history     *container.Scroll
+  historyBox 		 	*fyne.Container
+  historyScroll		*container.Scroll
+
+  onboardingBox *fyne.Container
 
   inputEntry  *widget.Entry
 }
 
 func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
   w := fy.NewWindow("🐬 Dolphin Chat 🐬")
-  cw := &ChatWindow{
-    app:  fy,
-    wnd:  w,
-    core: core,
-  }
+  cw := &ChatWindow{app: fy, wnd: w, core: core}
   cw.buildUI()
   return cw
 }
 
- func (cw *ChatWindow) buildUI() {
-  // --- 1) Status label ---
+func (cw *ChatWindow) buildUI() {
+  // --- 1) top bar widgets ---
   cw.statusLabel = widget.NewLabel("")
   cw.refreshUserStatus()
 
-  // --- 2) Agent dropdown (no callback yet) ---
-  metas := cw.core.Agents()
-  names := make([]string, len(metas))
-  for i, m := range metas {
+  agents := cw.core.Agents()
+  names := make([]string, len(agents))
+  for i, m := range agents {
     names[i] = m.Name
   }
   cw.agentSelect = widget.NewSelect(names, nil)
-
-  // --- 3) Tools button ---
   cw.toolsBtn = widget.NewButton("Tools", cw.openToolsWindow)
+  topBar := cw.topBar()
 
-  // --- 4) History area ---
-  cw.historyBox = container.NewVBox()
-  cw.history    = container.NewVScroll(cw.historyBox)
-  cw.history.SetMinSize(fyne.NewSize(400, 300))
-
-  // --- 5) Input + send ---
+  // --- 2) bottom bar ---
   cw.inputEntry = widget.NewEntry()
   cw.inputEntry.SetPlaceHolder("Type your message…")
   cw.inputEntry.OnSubmitted = func(_ string) { cw.sendMessage() }
   sendBtn := widget.NewButton("Send", cw.sendMessage)
   bottomBar := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
 
-  // --- 6) Top bar: status | spacer | tools | agent dropdown ---
-  topBar := container.NewHBox(
-    cw.statusLabel,
-    layout.NewSpacer(),
-    cw.toolsBtn,
-    cw.agentSelect,
- 		widget.NewButton("Edit Agent", func() { cw.openAgentWindow() }),
-		widget.NewButton("User",       func() { cw.openUserWindow() }),
-  )
+  // --- 3) center pane: onboarding vs history ---
+  var center fyne.CanvasObject
+  if len(cw.core.Users()) == 0 {
+    // no users → show onboarding
+    cw.onboardingBox = container.NewVBox(
+      widget.NewLabelWithStyle(
+        "Welcome to Dolphin Chat!",
+        fyne.TextAlignCenter,
+        fyne.TextStyle{Bold: true}),
+      widget.NewLabel("Looks like you haven’t created a user yet."),
+      widget.NewButton("Create First User", func() {
+        cw.openUserWindow()
+        // once that window saves the new user TOML,
+        // tear down and rebuild everything:
+        cw.buildUI()
+      }),
+    )
+    center = cw.onboardingBox
+  } else {
+    // users exist → show the normal history scroll
+    cw.historyBox = container.NewVBox()
+    cw.historyScroll = container.NewVScroll(cw.historyBox)
+    cw.historyScroll.SetMinSize(fyne.NewSize(400, 300))
+    center = cw.historyScroll
+  }
 
-  // --- 7) Assemble into window ---
+  // --- 4) assemble and set content ---
   content := container.NewBorder(
-    topBar,       // north
-    bottomBar,    // south
-    nil, nil,     // west, east
-    cw.history,   // center
+    topBar,    // north
+    bottomBar, // south
+    nil, nil,  // west, east
+    center,    // center
   )
   cw.wnd.SetContent(content)
 
-  // --- 8) Wire up agentSelect ---
+  // --- 5) wire up agent dropdown exactly as before ---
   cw.agentSelect.OnChanged = func(name string) {
     if err := cw.core.LoadAgent(name); err != nil {
       fmt.Println("failed to load agent:", err)
       return
     }
-    cw.historyBox.Objects = nil
-    cw.historyBox.Refresh()
+    if cw.historyBox != nil {
+      cw.historyBox.Objects = nil
+      cw.historyBox.Refresh()
+    }
   }
-
-  // --- 9) Initial agent selection (fires OnChanged) ---
+  // initial selection …
   switch {
   case cw.core.Agent() != nil:
     cw.agentSelect.SetSelected(cw.core.Agent().Name)
@@ -119,6 +122,16 @@ func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
   }
 }
 
+func (cw *ChatWindow) topBar() *fyne.Container {
+  return container.NewHBox(
+    cw.statusLabel,
+    layout.NewSpacer(),
+    cw.toolsBtn,
+    cw.agentSelect,
+    widget.NewButton("Edit Agent", cw.openAgentWindow),
+    widget.NewButton("User", cw.openUserWindow),
+  )
+}
 
 func (cw *ChatWindow) refreshUserStatus() {
   if u := cw.core.User(); u != nil {
@@ -130,8 +143,15 @@ func (cw *ChatWindow) refreshUserStatus() {
   } else {
     cw.statusLabel.SetText("User: None")
   }
-  cw.statusLabel.Refresh()
 }
+
+// helper to build the history pane (so we can re-use it)
+func (cw *ChatWindow) buildCenterHistory(bottomBar *fyne.Container) {
+  cw.historyBox = container.NewVBox()
+  cw.historyScroll = container.NewVScroll(cw.historyBox)
+  cw.historyScroll.SetMinSize(fyne.NewSize(400, 300))
+}
+
 
 func (cw *ChatWindow) sendMessage() {
   txt := cw.inputEntry.Text
@@ -156,121 +176,9 @@ func (cw *ChatWindow) appendMessage(who, msg string) {
   lbl := widget.NewLabel(fmt.Sprintf("%s: %s", who, msg))
   cw.historyBox.Add(lbl)
   cw.historyBox.Refresh()
-  cw.history.ScrollToBottom()
+  cw.historyScroll.ScrollToBottom()
 }
 
 func (cw *ChatWindow) ShowAndRun() {
   cw.wnd.ShowAndRun()
-}
-
-
-
-
-func (cw *ChatWindow) openAgentWindow() {
-  // 1) If it’s already open just focus it
-  if cw.agentWin != nil {
-    cw.agentWin.RequestFocus()
-    return
-  }
-
-  // 2) Create the agent edit window
-  w := cw.app.NewWindow("Edit Agent")
-  cw.agentWin = w
-  w.SetOnClosed(func() { cw.agentWin = nil })
-
-  // 3) Fetch the live agent pointer
-  ag := cw.core.Agent()
-
-  // 4) Build Entry widgets for Name & Model
-  nameEntry := widget.NewEntry()
-  nameEntry.SetText(ag.Name)
-  modelEntry := widget.NewEntry()
-  modelEntry.SetText(ag.Model)
-
-  // 5) Put them in a Form
-  form := &widget.Form{
-    Items: []*widget.FormItem{
-      {Text: "Name",  Widget: nameEntry},
-      {Text: "Model", Widget: modelEntry},
-    },
-    OnSubmit: func() {
-      // runs on UI thread already
-      ag.Name  = nameEntry.Text
-      ag.Model = modelEntry.Text
-      w.Close()
-    },
-    OnCancel: func() {
-      w.Close()
-    },
-  }
-
-  w.SetContent(container.NewVBox(form))
-  w.Resize(fyne.NewSize(400, 200))
-  w.Show()
-}
-
-
-
-func (cw *ChatWindow) openUserWindow() {
-  if cw.userWin != nil {
-    cw.userWin.RequestFocus()
-    return
-  }
-
-  w := cw.app.NewWindow("Edit User")
-  cw.userWin = w
-  w.SetOnClosed(func() { cw.userWin = nil })
-
-  usr := cw.core.User()  // *app.User
-
-  // Name field
-  nameEntry := widget.NewEntry()
-  nameEntry.SetText(usr.Name)
-
-  // Default-agent dropdown
-  names := make([]string, len(usr.Agents))
-  for i, m := range usr.Agents {
-    names[i] = m.Name
-  }
-  defaultSelect := widget.NewSelect(names, nil)
-  if usr.DefaultAgent != nil {
-    defaultSelect.SetSelected(usr.DefaultAgent.Name)
-  }
-
-  form := &widget.Form{
-    Items: []*widget.FormItem{
-      {Text: "User Name",     Widget: nameEntry},
-      {Text: "Default Agent", Widget: defaultSelect},
-    },
-    OnSubmit: func() {
-      // 1) update the name
-      usr.Name = nameEntry.Text
-
-      // 2) if they chose a default, build it
-      sel := defaultSelect.Selected
-      if sel != "" {
-        for _, m := range usr.Agents {
-          if m.Name == sel {
-            // pass nil for plugins since AgentMeta has none
-            a, err := agent.NewAgent(m.Name, m.Model, nil)
-            if err != nil {
-              dialog.ShowError(err, w)
-              return
-            }
-            usr.DefaultAgent = a
-            break
-          }
-        }
-      }
-
-      w.Close()
-    },
-    OnCancel: func() {
-      w.Close()
-    },
-  }
-
-  w.SetContent(container.NewVBox(form))
-  w.Resize(fyne.NewSize(400, 200))
-  w.Show()
 }
