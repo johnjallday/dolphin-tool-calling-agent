@@ -31,12 +31,12 @@ type ChatWindow struct {
   userDefaultAgent *widget.Select
   userForm         *widget.Form
 
- 	agentWin            fyne.Window     // new window handle
-  agentShortcutAdded  bool
-	//userWin  fyne.Window
 
   statusLabel *widget.Label
-  agentSelect *widget.Select
+	agentSelect     *widget.Select
+	agentNameEntry  *widget.Entry
+	agentModelEntry *widget.Entry
+	agentForm       *widget.Form
 
   historyBox 		 	*fyne.Container
   historyScroll		*container.Scroll
@@ -55,115 +55,144 @@ func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
 
 
 func (cw *ChatWindow) buildUI() {
-  // 0) If we have an old window content, drop it so we don't leak
-  // (optional, but helps avoid phantom widgets).
-  // cw.wnd.SetContent(nil)
-
-  // 1) Build the top bar: status, agent picker, buttons
+  // ─── 1) TOP BAR ──────────────────────────────────────────────
   cw.statusLabel = widget.NewLabel("")
   cw.refreshUserStatus()
-
-  agents := cw.core.Agents()
-  names := make([]string, len(agents))
-  for i, a := range agents {
-    names[i] = a.Name
-  }
-  cw.agentSelect = widget.NewSelect(names, func(sel string) {
-    // your LoadAgent logic here…
-  })
-
-  // “User” button now just flips to the User tab
-  userBtn := widget.NewButton("User", func() {
-    // we'll add the User tab at index 2 below
-    cw.mainTabs.SelectTabIndex(2)
-  })
 
   topBar := container.NewHBox(
     cw.statusLabel,
     layout.NewSpacer(),
-    cw.agentSelect,
-    widget.NewButton("Edit Agent", cw.openAgentWindow),
-    userBtn,
   )
 
-  // 2) Chat tab → build bottom send bar + center
+  // ─── 2) CHAT TAB ─────────────────────────────────────────────
   cw.inputEntry = widget.NewEntry()
   cw.inputEntry.SetPlaceHolder("Type your message…")
   cw.inputEntry.OnSubmitted = func(_ string) { cw.sendMessage() }
+  sendBtn := widget.NewButton("Send", cw.sendMessage)
 
-  sendBtn := widget.NewButton("Send", func() { cw.sendMessage() })
   chatBottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
-
   chatCenter := cw.buildCenter()
-  chatPane := container.NewBorder(nil, chatBottom, nil, nil, chatCenter)
+  chatPane   := container.NewBorder(nil, chatBottom, nil, nil, chatCenter)
 
-  // 3) Tools tab
-  cw.toolsList = container.NewVBox()
+  // ─── 3) TOOLS TAB ────────────────────────────────────────────
+  cw.toolsList     = container.NewVBox()
   cw.refreshCurrentToolsList()
-  currentScroll := container.NewVScroll(cw.toolsList)
-
+  toolsScroll      := container.NewVScroll(cw.toolsList)
   cw.toolpacksPane = container.NewCenter(
     widget.NewLabelWithStyle("Toolpacks go here…",
       fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
   )
-
   toolsTabs := container.NewAppTabs(
-    container.NewTabItem("Current Tools", currentScroll),
-    container.NewTabItem("Toolpacks", cw.toolpacksPane),
+    container.NewTabItem("Current Tools", toolsScroll),
+    container.NewTabItem("Toolpacks",     cw.toolpacksPane),
   )
   toolsTabs.SetTabLocation(container.TabLocationTop)
 
-  // 4) User tab
+  // ─── 4) AGENT TAB ────────────────────────────────────────────
+  ag := cw.core.Agent()
+
+  // a) build the Select with NO callback first
+  agents := cw.core.Agents()
+  names  := make([]string, len(agents))
+  for i, a := range agents {
+    names[i] = a.Name
+  }
+  cw.agentSelect = widget.NewSelect(names, nil)
+
+  // b) pre-select the current agent (won’t trigger OnChanged)
+  if ag != nil {
+    cw.agentSelect.SetSelected(ag.Name)
+  }
+
+  // c) now wire up OnChanged
+  cw.agentSelect.OnChanged = func(sel string) {
+    // your “switch agent” logic here, for example
+    cw.core.LoadAgent(sel)
+    // rebuild the UI so everything picks up the new agent
+    cw.buildUI()
+  }
+
+  var agentPane fyne.CanvasObject
+  if ag == nil {
+    // no agent at all yet: show selector + onboarding
+    agentPane = container.NewVBox(
+      cw.agentSelect,
+      widget.NewSeparator(),
+      cw.createAgentOnboardingBox(),
+    )
+  } else {
+    // agent exists: show selector + edit form
+    cw.agentNameEntry  = widget.NewEntry()
+    cw.agentNameEntry.SetText(ag.Name)
+    cw.agentModelEntry = widget.NewEntry()
+    cw.agentModelEntry.SetText(ag.Model)
+
+    cw.agentForm = &widget.Form{
+      Items: []*widget.FormItem{
+        {Text: "Name",  Widget: cw.agentNameEntry},
+        {Text: "Model", Widget: cw.agentModelEntry},
+      },
+      OnSubmit: func() {
+        ag.Name  = cw.agentNameEntry.Text
+        ag.Model = cw.agentModelEntry.Text
+        // redraw the UI so dropdown & other tabs update
+        cw.buildUI()
+        cw.mainTabs.SelectTabIndex(0) // back to Chat
+      },
+      OnCancel: func() {
+        cw.agentNameEntry.SetText(ag.Name)
+        cw.agentModelEntry.SetText(ag.Model)
+        cw.mainTabs.SelectTabIndex(0)
+      },
+    }
+
+    agentPane = container.NewVBox(
+      cw.agentSelect,
+      widget.NewSeparator(),
+      cw.agentForm,
+    )
+  }
+
+  // ─── 5) USER TAB ──────────────────────────────────────────────
   var userPane fyne.CanvasObject
   usr := cw.core.User()
   if usr == nil {
-    // no user yet: let the user-create onboarding run here
     userPane = cw.createOnboardingBox()
   } else {
-    // build the “edit user” form in-place
-    // a) name entry
     cw.userNameEntry = widget.NewEntry()
     cw.userNameEntry.SetText(usr.Name)
 
-    // b) default-agent picker
-    agentNames := make([]string, len(usr.Agents))
+    names2 := make([]string, len(usr.Agents))
     for i, a := range usr.Agents {
-      agentNames[i] = a.Name
+      names2[i] = a.Name
     }
-    cw.userDefaultAgent = widget.NewSelect(agentNames, nil)
+    cw.userDefaultAgent = widget.NewSelect(names2, nil)
     if usr.DefaultAgent != nil {
       cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
     }
-
-    // c) assemble the Form
     cw.userForm = &widget.Form{
       Items: []*widget.FormItem{
         {Text: "User Name",     Widget: cw.userNameEntry},
         {Text: "Default Agent", Widget: cw.userDefaultAgent},
       },
       OnSubmit: func() {
-        // 1) update name
         usr.Name = cw.userNameEntry.Text
-        // 2) update default agent
-        sel := cw.userDefaultAgent.Selected
-        if sel != "" {
+        if sel := cw.userDefaultAgent.Selected; sel != "" {
           for _, m := range usr.Agents {
             if m.Name == sel {
-              newA, err := agent.NewAgent(m.Name, m.Model, nil)
+              a, err := agent.NewAgent(m.Name, m.Model, nil)
               if err != nil {
                 dialog.ShowError(err, cw.wnd)
                 return
               }
-              usr.DefaultAgent = newA
-              break
+              usr.DefaultAgent = a
             }
           }
         }
         cw.refreshUserStatus()
-        cw.mainTabs.SelectTabIndex(0) // back to Chat
+        cw.mainTabs.SelectTabIndex(0)
       },
       OnCancel: func() {
-        // reset fields
         cw.userNameEntry.SetText(usr.Name)
         if usr.DefaultAgent != nil {
           cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
@@ -174,24 +203,23 @@ func (cw *ChatWindow) buildUI() {
     userPane = container.NewVBox(cw.userForm)
   }
 
-  // 5) Assemble the three tabs
+  // ─── 6) PUT ’EM ALL TOGETHER ─────────────────────────────────
   cw.mainTabs = container.NewAppTabs(
     container.NewTabItem("Chat",  chatPane),
     container.NewTabItem("Tools", toolsTabs),
+    container.NewTabItem("Agent", agentPane),
     container.NewTabItem("User",  userPane),
   )
   cw.mainTabs.SetTabLocation(container.TabLocationTop)
 
-  // 6) Finally, put the top bar above the tabs
-  root := container.NewBorder(
-    topBar,       // north
-    nil,          // south
-    nil, nil,     // west, east
-    cw.mainTabs,  // center
+  content := container.NewBorder(
+    topBar, nil, nil, nil,
+    cw.mainTabs,
   )
-  cw.wnd.SetContent(root)
+  cw.wnd.SetContent(content)
   cw.wnd.Resize(fyne.NewSize(600, 480))
 }
+
 
 
 func (cw *ChatWindow) buildCenter() fyne.CanvasObject {
@@ -228,9 +256,6 @@ func (cw *ChatWindow) topBar() *fyne.Container {
   return container.NewHBox(
     cw.statusLabel,
     layout.NewSpacer(),
-    cw.agentSelect,
-    widget.NewButton("Edit Agent", cw.openAgentWindow),
-    //widget.NewButton("User", cw.openUserWindow),
   )
 }
 
