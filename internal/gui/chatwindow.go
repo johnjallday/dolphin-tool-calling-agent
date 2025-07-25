@@ -66,14 +66,18 @@ func (cw *ChatWindow) buildUI() {
   sendBtn := widget.NewButton("Send", cw.sendMessage)
   bottomBar := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
 
-  // --- 3) center pane: onboarding vs history ---
+  // --- 3) center pane: 2-step onboarding, then history ---
   var center fyne.CanvasObject
+  // step 1: no users? ask for username
   if len(cw.core.Users()) == 0 {
-		cw.onboardingBox = cw.createOnboardingBox()
+    cw.onboardingBox = cw.createOnboardingBox()
     center = cw.onboardingBox
-
+  // step 2: user exists but no agents? ask for agent name
+  } else if len(cw.core.Agents()) == 0 {
+    cw.onboardingBox = cw.createAgentOnboardingBox()
+    center = cw.onboardingBox
+  // step 3: normal chat/history
   } else {
-    // … existing history setup …
     cw.historyBox = container.NewVBox()
     cw.historyScroll = container.NewVScroll(cw.historyBox)
     cw.historyScroll.SetMinSize(fyne.NewSize(400, 300))
@@ -189,11 +193,17 @@ func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
       dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
       return
     }
+    // 1) create the user on-disk/in-memory
     if err := cw.core.CreateUser(userID); err != nil {
       dialog.ShowError(err, cw.wnd)
       return
     }
-    // rebuild the UI now that we have a user
+    // 2) mark them as the default user (this also calls LoadUser under the hood)
+    if err := cw.core.SetDefaultUser(userID); err != nil {
+      dialog.ShowError(fmt.Errorf("could not set default user: %w", err), cw.wnd)
+      return
+    }
+    // 3) rebuild the whole UI now that we have at least one user
     cw.buildUI()
   })
 
@@ -201,6 +211,42 @@ func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
     widget.NewLabelWithStyle("Welcome to Dolphin Chat!",
       fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
     widget.NewLabel("Please pick a username to get started:"),
+    nameEntry,
+    createBtn,
+  )
+}
+
+
+
+
+func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container {
+  nameEntry := widget.NewEntry()
+  nameEntry.SetPlaceHolder("Enter agent name")
+
+  createBtn := widget.NewButton("Create Agent", func() {
+    agentName := strings.TrimSpace(nameEntry.Text)
+    if agentName == "" {
+      dialog.ShowError(fmt.Errorf("agent name cannot be empty"), cw.wnd)
+      return
+    }
+    meta := app.AgentMeta{
+      Name:      agentName,
+      Model:     "gpt-4.1-nano", // or your default
+      ToolPaths: nil,
+    }
+    if err := cw.core.CreateAgent(meta); err != nil {
+      dialog.ShowError(err, cw.wnd)
+      return
+    }
+    // now that we have an agent, rebuild into the real chat UI
+    cw.buildUI()
+  })
+
+  return container.NewVBox(
+    widget.NewLabelWithStyle(
+      "🎉 Welcome to Dolphin Chat!", fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
+    ),
+    widget.NewLabel("Let’s create your first agent:"),
     nameEntry,
     createBtn,
   )

@@ -18,6 +18,7 @@ type ToolInfo struct {
 
 type App interface {
   Init() error
+	SetDefaultUser(username string) error
   Users() []string
 	User() *user.User
 	Agent() *agent.Agent

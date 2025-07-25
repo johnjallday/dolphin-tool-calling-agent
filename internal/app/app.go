@@ -54,6 +54,17 @@ func (a *DefaultApp) Init() error {
   return a.LoadUser(settings.DefaultUser)
 }
 
+// SetDefaultUser persists & then loads that user
+func (a *DefaultApp) SetDefaultUser(userName string) error {
+  if err := store.SetDefaultUser(userName); err != nil {
+    return fmt.Errorf("persist default user: %w", err)
+  }
+  if err := a.LoadUser(userName); err != nil {
+    return fmt.Errorf("load user %q: %w", userName, err)
+  }
+  return nil
+}
+
 func (a *DefaultApp) Users() []string {
   var names []string
   dir := "configs/users"
@@ -80,9 +91,6 @@ func (a *DefaultApp) CreateUser(userID string) error {
   }
   a.user = u
   a.agent = nil
-
-  // If you also want to persist this as the default in app_setting.toml,
-  // do it here (decode, set default_user = userID, re‐encode).
 
   return nil
 }
