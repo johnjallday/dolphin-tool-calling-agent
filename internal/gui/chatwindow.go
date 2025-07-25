@@ -53,19 +53,29 @@ func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
   return cw
 }
 
+
 func (cw *ChatWindow) buildUI() {
-  // 1) Top bar (status, agent picker, buttons)
-  cw.statusLabel = widget.NewLabel("") 
+  // 0) If we have an old window content, drop it so we don't leak
+  // (optional, but helps avoid phantom widgets).
+  // cw.wnd.SetContent(nil)
+
+  // 1) Build the top bar: status, agent picker, buttons
+  cw.statusLabel = widget.NewLabel("")
   cw.refreshUserStatus()
 
-  // build agent dropdown
   agents := cw.core.Agents()
   names := make([]string, len(agents))
   for i, a := range agents {
     names[i] = a.Name
   }
   cw.agentSelect = widget.NewSelect(names, func(sel string) {
-    // your LoadAgent logic here
+    // your LoadAgent logic here…
+  })
+
+  // “User” button now just flips to the User tab
+  userBtn := widget.NewButton("User", func() {
+    // we'll add the User tab at index 2 below
+    cw.mainTabs.SelectTabIndex(2)
   })
 
   topBar := container.NewHBox(
@@ -73,13 +83,10 @@ func (cw *ChatWindow) buildUI() {
     layout.NewSpacer(),
     cw.agentSelect,
     widget.NewButton("Edit Agent", cw.openAgentWindow),
-    //widget.NewButton("User", func() {
-      // switch to our new User tab
-      //cw.mainTabs.SelectTabIndex(2)
-    //}),
+    userBtn,
   )
 
-  // 2) Chat tab: bottom send-bar
+  // 2) Chat tab → build bottom send bar + center
   cw.inputEntry = widget.NewEntry()
   cw.inputEntry.SetPlaceHolder("Type your message…")
   cw.inputEntry.OnSubmitted = func(_ string) { cw.sendMessage() }
@@ -87,7 +94,6 @@ func (cw *ChatWindow) buildUI() {
   sendBtn := widget.NewButton("Send", func() { cw.sendMessage() })
   chatBottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
 
-  // Chat center (onboarding vs history)
   chatCenter := cw.buildCenter()
   chatPane := container.NewBorder(nil, chatBottom, nil, nil, chatCenter)
 
@@ -107,59 +113,68 @@ func (cw *ChatWindow) buildUI() {
   )
   toolsTabs.SetTabLocation(container.TabLocationTop)
 
-  // 4) User tab (in-place form instead of separate window)
+  // 4) User tab
+  var userPane fyne.CanvasObject
   usr := cw.core.User()
-  // name
-  cw.userNameEntry = widget.NewEntry()
-  cw.userNameEntry.SetText(usr.Name)
-  // default-agent picker
-  agentNames := make([]string, len(usr.Agents))
-  for i, a := range usr.Agents {
-    agentNames[i] = a.Name
-  }
-  cw.userDefaultAgent = widget.NewSelect(agentNames, nil)
-  if usr.DefaultAgent != nil {
-    cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
-  }
+  if usr == nil {
+    // no user yet: let the user-create onboarding run here
+    userPane = cw.createOnboardingBox()
+  } else {
+    // build the “edit user” form in-place
+    // a) name entry
+    cw.userNameEntry = widget.NewEntry()
+    cw.userNameEntry.SetText(usr.Name)
 
-  cw.userForm = &widget.Form{
-    Items: []*widget.FormItem{
-      {Text: "User Name",     Widget: cw.userNameEntry},
-      {Text: "Default Agent", Widget: cw.userDefaultAgent},
-    },
-    OnSubmit: func() {
-      // 1) update user name
-      usr.Name = cw.userNameEntry.Text
-      // 2) update default agent if changed
-      sel := cw.userDefaultAgent.Selected
-      if sel != "" {
-        for _, m := range usr.Agents {
-          if m.Name == sel {
-            newA, err := agent.NewAgent(m.Name, m.Model, nil)
-            if err != nil {
-              dialog.ShowError(err, cw.wnd)
-              return
+    // b) default-agent picker
+    agentNames := make([]string, len(usr.Agents))
+    for i, a := range usr.Agents {
+      agentNames[i] = a.Name
+    }
+    cw.userDefaultAgent = widget.NewSelect(agentNames, nil)
+    if usr.DefaultAgent != nil {
+      cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
+    }
+
+    // c) assemble the Form
+    cw.userForm = &widget.Form{
+      Items: []*widget.FormItem{
+        {Text: "User Name",     Widget: cw.userNameEntry},
+        {Text: "Default Agent", Widget: cw.userDefaultAgent},
+      },
+      OnSubmit: func() {
+        // 1) update name
+        usr.Name = cw.userNameEntry.Text
+        // 2) update default agent
+        sel := cw.userDefaultAgent.Selected
+        if sel != "" {
+          for _, m := range usr.Agents {
+            if m.Name == sel {
+              newA, err := agent.NewAgent(m.Name, m.Model, nil)
+              if err != nil {
+                dialog.ShowError(err, cw.wnd)
+                return
+              }
+              usr.DefaultAgent = newA
+              break
             }
-            usr.DefaultAgent = newA
-            break
           }
         }
-      }
-      cw.refreshUserStatus()
-      cw.mainTabs.SelectTabIndex(0) // go back to Chat
-    },
-    OnCancel: func() {
-      // reset fields & back to Chat
-      cw.userNameEntry.SetText(usr.Name)
-      if usr.DefaultAgent != nil {
-        cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
-      }
-      cw.mainTabs.SelectTabIndex(0)
-    },
+        cw.refreshUserStatus()
+        cw.mainTabs.SelectTabIndex(0) // back to Chat
+      },
+      OnCancel: func() {
+        // reset fields
+        cw.userNameEntry.SetText(usr.Name)
+        if usr.DefaultAgent != nil {
+          cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
+        }
+        cw.mainTabs.SelectTabIndex(0)
+      },
+    }
+    userPane = container.NewVBox(cw.userForm)
   }
-  userPane := container.NewVBox(cw.userForm)
 
-  // 5) Assemble the three main tabs
+  // 5) Assemble the three tabs
   cw.mainTabs = container.NewAppTabs(
     container.NewTabItem("Chat",  chatPane),
     container.NewTabItem("Tools", toolsTabs),
@@ -167,14 +182,14 @@ func (cw *ChatWindow) buildUI() {
   )
   cw.mainTabs.SetTabLocation(container.TabLocationTop)
 
-  // 6) Put the single topBar above the AppTabs
-  layout := container.NewBorder(
+  // 6) Finally, put the top bar above the tabs
+  root := container.NewBorder(
     topBar,       // north
     nil,          // south
     nil, nil,     // west, east
     cw.mainTabs,  // center
   )
-  cw.wnd.SetContent(layout)
+  cw.wnd.SetContent(root)
   cw.wnd.Resize(fyne.NewSize(600, 480))
 }
 
