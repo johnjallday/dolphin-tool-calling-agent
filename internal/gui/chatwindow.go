@@ -69,31 +69,7 @@ func (cw *ChatWindow) buildUI() {
   // --- 3) center pane: onboarding vs history ---
   var center fyne.CanvasObject
   if len(cw.core.Users()) == 0 {
-    // On‐boarding: ask for username
-    nameEntry := widget.NewEntry()
-    nameEntry.SetPlaceHolder("Enter username")
-
-    createBtn := widget.NewButton("Create User", func() {
-      userID := strings.TrimSpace(nameEntry.Text)
-      if userID == "" {
-        dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
-        return
-      }
-      if err := cw.core.CreateUser(userID); err != nil {
-        dialog.ShowError(err, cw.wnd)
-        return
-      }
-      // rebuild the UI now that we have at least one user
-      cw.buildUI()
-    })
-
-    cw.onboardingBox = container.NewVBox(
-      widget.NewLabelWithStyle("Welcome to Dolphin Chat!",
-        fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-      widget.NewLabel("Please pick a username to get started:"),
-      nameEntry,
-      createBtn,
-    )
+		cw.onboardingBox = cw.createOnboardingBox()
     center = cw.onboardingBox
 
   } else {
@@ -200,4 +176,32 @@ func (cw *ChatWindow) appendMessage(who, msg string) {
 
 func (cw *ChatWindow) ShowAndRun() {
   cw.wnd.ShowAndRun()
+}
+
+
+func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
+  nameEntry := widget.NewEntry()
+  nameEntry.SetPlaceHolder("Enter username")
+
+  createBtn := widget.NewButton("Create User", func() {
+    userID := strings.TrimSpace(nameEntry.Text)
+    if userID == "" {
+      dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
+      return
+    }
+    if err := cw.core.CreateUser(userID); err != nil {
+      dialog.ShowError(err, cw.wnd)
+      return
+    }
+    // rebuild the UI now that we have a user
+    cw.buildUI()
+  })
+
+  return container.NewVBox(
+    widget.NewLabelWithStyle("Welcome to Dolphin Chat!",
+      fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+    widget.NewLabel("Please pick a username to get started:"),
+    nameEntry,
+    createBtn,
+  )
 }

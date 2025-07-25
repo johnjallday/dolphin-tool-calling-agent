@@ -9,6 +9,7 @@ import (
   "github.com/BurntSushi/toml"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/user"
+	"github.com/johnjallday/dolphin-tool-calling-agent/internal/store"
 	//"github.com/johnjallday/dolphin-tool-calling-agent/internal/registry"
 	"github.com/johnjallday/dolphin-tool-calling-agent/pkg/tools"
 )
@@ -27,54 +28,30 @@ func NewApp() App {
   return &DefaultApp{}
 }
 
-
-
 func (a *DefaultApp) Init() error {
-  cfgDir := "configs"
-
-  // 1) Ensure configs/users exists
-  usersDir := filepath.Join(cfgDir, "users")
-  if err := os.MkdirAll(usersDir, 0755); err != nil {
-    return fmt.Errorf("mkdir %q: %w", usersDir, err)
+  // ensure configs/ and app_setting.toml exist
+  if err := store.EnsureAppSettingsDir(); err != nil {
+    return fmt.Errorf("ensure app settings: %w", err)
   }
 
-  // 2) Ensure plugins folder exists
+  // (if you still need configs/users or plugins folder:)
+  if err := os.MkdirAll(filepath.Join(store.DefaultConfigDir, "users"), 0755); err != nil {
+    return fmt.Errorf("mkdir users: %w", err)
+  }
   if err := os.MkdirAll("plugins", 0755); err != nil {
-    return fmt.Errorf("mkdir %q: %w", "plugins", err)
+    return fmt.Errorf("mkdir plugins: %w", err)
   }
 
-  // 3) Ensure app_setting.toml exists
-  settingPath := filepath.Join(cfgDir, "app_setting.toml")
-  if _, err := os.Stat(settingPath); err != nil {
-    if os.IsNotExist(err) {
-      f, err := os.Create(settingPath)
-      if err != nil {
-        return fmt.Errorf("create %q: %w", settingPath, err)
-      }
-      defer f.Close()
-      // initialize with an empty default_user
-      if _, err := f.WriteString("default_user = \"\"\n"); err != nil {
-        return fmt.Errorf("write %q: %w", settingPath, err)
-      }
-    } else {
-      return fmt.Errorf("stat %q: %w", settingPath, err)
-    }
+  // load settings
+  settings, err := store.LoadAppSettings()
+  if err != nil {
+    return fmt.Errorf("read app_setting.toml: %w", err)
   }
 
-  // 4) Parse it
-  var cfg AppConfig
-  if _, err := toml.DecodeFile(settingPath, &cfg); err != nil {
-    return fmt.Errorf("parse %q: %w", settingPath, err)
+  if settings.DefaultUser == "" {
+    return nil // nothing to load yet
   }
-
-  // 5) If no default_user is set, just return (no error)
-  if cfg.DefaultUser == "" {
-    // no user to load yet – we'll defer to TUI.InitCmd() to bootstrap one
-    return nil
-  }
-
-  // 6) Load the default user
-  return a.LoadUser(cfg.DefaultUser)
+  return a.LoadUser(settings.DefaultUser)
 }
 
 func (a *DefaultApp) Users() []string {
