@@ -70,27 +70,12 @@ func (cw *ChatWindow) buildUI() {
   chatBottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
   chatCenter := cw.buildCenter()
   chatPane   := container.NewBorder(nil, chatBottom, nil, nil, chatCenter)
-
-  // ─── 3) TOOLS TAB ────────────────────────────────────────────
-  cw.toolsList     = container.NewVBox()
-  cw.refreshCurrentToolsList()
-  toolsScroll      := container.NewVScroll(cw.toolsList)
-  cw.toolpacksPane = container.NewCenter(
-    widget.NewLabelWithStyle("Toolpacks go here…",
-      fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-  )
-  toolsTabs := container.NewAppTabs(
-    container.NewTabItem("Current Tools", toolsScroll),
-    container.NewTabItem("Toolpacks",     cw.toolpacksPane),
-  )
-  toolsTabs.SetTabLocation(container.TabLocationTop)
-
-
-
-  // ─── 6) PUT ’EM ALL TOGETHER ─────────────────────────────────
+	
+  // ─── 3) PUT ’EM ALL TOGETHER ─────────────────────────────────
   cw.mainTabs = container.NewAppTabs(
     container.NewTabItem("Chat",  chatPane),
-    container.NewTabItem("Tools", toolsTabs),
+    //container.NewTabItem("Tools", toolsTabs),
+		cw.makeToolsTab(),
 		cw.makeAgentTab(),
 		cw.makeUserTab(),
   )
