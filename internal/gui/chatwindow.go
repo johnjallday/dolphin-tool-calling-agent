@@ -9,7 +9,6 @@ import (
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
   "fyne.io/fyne/v2/dialog"
-	"strings"
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
@@ -88,70 +87,6 @@ func (cw *ChatWindow) buildUI() {
   )
   toolsTabs.SetTabLocation(container.TabLocationTop)
 
-  // ─── 4) AGENT TAB ────────────────────────────────────────────
-  ag := cw.core.Agent()
-
-  // a) build the Select with NO callback first
-  agents := cw.core.Agents()
-  names  := make([]string, len(agents))
-  for i, a := range agents {
-    names[i] = a.Name
-  }
-  cw.agentSelect = widget.NewSelect(names, nil)
-
-  // b) pre-select the current agent (won’t trigger OnChanged)
-  if ag != nil {
-    cw.agentSelect.SetSelected(ag.Name)
-  }
-
-  // c) now wire up OnChanged
-  cw.agentSelect.OnChanged = func(sel string) {
-    // your “switch agent” logic here, for example
-    cw.core.LoadAgent(sel)
-    // rebuild the UI so everything picks up the new agent
-    cw.buildUI()
-  }
-
-  var agentPane fyne.CanvasObject
-  if ag == nil {
-    // no agent at all yet: show selector + onboarding
-    agentPane = container.NewVBox(
-      cw.agentSelect,
-      widget.NewSeparator(),
-      cw.createAgentOnboardingBox(),
-    )
-  } else {
-    // agent exists: show selector + edit form
-    cw.agentNameEntry  = widget.NewEntry()
-    cw.agentNameEntry.SetText(ag.Name)
-    cw.agentModelEntry = widget.NewEntry()
-    cw.agentModelEntry.SetText(ag.Model)
-
-    cw.agentForm = &widget.Form{
-      Items: []*widget.FormItem{
-        {Text: "Name",  Widget: cw.agentNameEntry},
-        {Text: "Model", Widget: cw.agentModelEntry},
-      },
-      OnSubmit: func() {
-        ag.Name  = cw.agentNameEntry.Text
-        ag.Model = cw.agentModelEntry.Text
-        // redraw the UI so dropdown & other tabs update
-        cw.buildUI()
-        cw.mainTabs.SelectTabIndex(0) // back to Chat
-      },
-      OnCancel: func() {
-        cw.agentNameEntry.SetText(ag.Name)
-        cw.agentModelEntry.SetText(ag.Model)
-        cw.mainTabs.SelectTabIndex(0)
-      },
-    }
-
-    agentPane = container.NewVBox(
-      cw.agentSelect,
-      widget.NewSeparator(),
-      cw.agentForm,
-    )
-  }
 
   // ─── 5) USER TAB ──────────────────────────────────────────────
   var userPane fyne.CanvasObject
@@ -207,7 +142,7 @@ func (cw *ChatWindow) buildUI() {
   cw.mainTabs = container.NewAppTabs(
     container.NewTabItem("Chat",  chatPane),
     container.NewTabItem("Tools", toolsTabs),
-    container.NewTabItem("Agent", agentPane),
+		cw.makeAgentTab(),
     container.NewTabItem("User",  userPane),
   )
   cw.mainTabs.SetTabLocation(container.TabLocationTop)
@@ -310,71 +245,9 @@ func (cw *ChatWindow) ShowAndRun() {
 }
 
 
-func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
-  nameEntry := widget.NewEntry()
-  nameEntry.SetPlaceHolder("Enter username")
-
-  createBtn := widget.NewButton("Create User", func() {
-    userID := strings.TrimSpace(nameEntry.Text)
-    if userID == "" {
-      dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
-      return
-    }
-    // 1) create the user on-disk/in-memory
-    if err := cw.core.CreateUser(userID); err != nil {
-      dialog.ShowError(err, cw.wnd)
-      return
-    }
-    // 2) mark them as the default user (this also calls LoadUser under the hood)
-    if err := cw.core.SetDefaultUser(userID); err != nil {
-      dialog.ShowError(fmt.Errorf("could not set default user: %w", err), cw.wnd)
-      return
-    }
-    // 3) rebuild the whole UI now that we have at least one user
-    cw.buildUI()
-  })
-
-  return container.NewVBox(
-    widget.NewLabelWithStyle("Welcome to Dolphin Chat!",
-      fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-    widget.NewLabel("Please pick a username to get started:"),
-    nameEntry,
-    createBtn,
-  )
-}
 
 
 
 
-func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container {
-  nameEntry := widget.NewEntry()
-  nameEntry.SetPlaceHolder("Enter agent name")
 
-  createBtn := widget.NewButton("Create Agent", func() {
-    agentName := strings.TrimSpace(nameEntry.Text)
-    if agentName == "" {
-      dialog.ShowError(fmt.Errorf("agent name cannot be empty"), cw.wnd)
-      return
-    }
-    meta := app.AgentMeta{
-      Name:      agentName,
-      Model:     "gpt-4.1-nano",
-      ToolPaths: nil,
-    }
-    if err := cw.core.CreateAgent(meta); err != nil {
-      dialog.ShowError(err, cw.wnd)
-      return
-    }
-    // now that we have an agent, rebuild into the real chat UI
-    cw.buildUI()
-  })
 
-  return container.NewVBox(
-    widget.NewLabelWithStyle(
-      "🎉 Welcome to Dolphin Chat! 🐬", fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
-    ),
-    widget.NewLabel("Let’s create your first agent:"),
-    nameEntry,
-    createBtn,
-  )
-}
