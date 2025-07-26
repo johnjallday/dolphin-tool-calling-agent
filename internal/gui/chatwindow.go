@@ -360,16 +360,26 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   return container.NewVBox(form)
 }
 
+
 func (cw *ChatWindow) refreshUserStatus() {
+  var userPart, agentPart string
+
+  // 1) Figure out user name
   if u := cw.core.User(); u != nil {
-    def := "None"
-    if u.DefaultAgent != nil {
-      def = u.DefaultAgent.Name
-    }
-    cw.statusLabel.SetText(
-      fmt.Sprintf("User: %s (Default Agent: %s)", u.Name, def),
-    )
+    userPart = u.Name
   } else {
-    cw.statusLabel.SetText("User: None")
+    userPart = "None"
   }
+
+  // 2) Figure out current agent name
+  if a := cw.core.Agent(); a != nil {
+    agentPart = a.Name
+  } else {
+    agentPart = "None"
+  }
+
+  // 3) Show them both
+  cw.statusLabel.SetText(
+    fmt.Sprintf("User: %s\nCurrent Agent: %s", userPart, agentPart),
+  )
 }

@@ -29,31 +29,45 @@ func NewApp() App {
   return &DefaultApp{}
 }
 
+
 func (a *DefaultApp) Init() error {
   // ensure configs/ and app_setting.toml exist
   if err := store.EnsureAppSettingsDir(); err != nil {
     return fmt.Errorf("ensure app settings: %w", err)
   }
+  // create subfolders if you still need them
+  _ = os.MkdirAll(filepath.Join(store.DefaultConfigDir, "users"), 0755)
+  _ = os.MkdirAll("plugins", 0755)
 
-  // (if you still need configs/users or plugins folder:)
-  if err := os.MkdirAll(filepath.Join(store.DefaultConfigDir, "users"), 0755); err != nil {
-    return fmt.Errorf("mkdir users: %w", err)
-  }
-  if err := os.MkdirAll("plugins", 0755); err != nil {
-    return fmt.Errorf("mkdir plugins: %w", err)
-  }
-
-  // load settings
+  // load the top-level app settings (which only has DefaultUser)
   settings, err := store.LoadAppSettings()
   if err != nil {
     return fmt.Errorf("read app_setting.toml: %w", err)
   }
 
+  // if there is no default user, bail out: onboarding will kick in
   if settings.DefaultUser == "" {
-    return nil // nothing to load yet
+    return nil
   }
-  return a.LoadUser(settings.DefaultUser)
+
+  // 1) load the user from configs/users/…  
+  if err := a.LoadUser(settings.DefaultUser); err != nil {
+    return fmt.Errorf("load default user %q: %w", settings.DefaultUser, err)
+  }
+
+  // 2) if the user‐TOML specified a default_agent, the User.DefaultAgent
+  //    field will already be set by NewUser(...).  Detect it and call
+  //    your normal SetDefaultAgent logic to wire it up:
+  if u := a.User(); u != nil && u.DefaultAgent != nil {
+    if err := a.SetDefaultAgent(u.DefaultAgent.Name); err != nil {
+      return fmt.Errorf("load user default agent %q: %w",
+        u.DefaultAgent.Name, err)
+    }
+  }
+
+  return nil
 }
+
 
 // SetDefaultUser persists & then loads that user
 func (a *DefaultApp) SetDefaultUser(userName string) error {
