@@ -8,10 +8,8 @@ import (
   "fyne.io/fyne/v2/container"
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
-  "fyne.io/fyne/v2/dialog"
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
-  "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
 )
 
 type ChatWindow struct {
@@ -88,62 +86,13 @@ func (cw *ChatWindow) buildUI() {
   toolsTabs.SetTabLocation(container.TabLocationTop)
 
 
-  // ─── 5) USER TAB ──────────────────────────────────────────────
-  var userPane fyne.CanvasObject
-  usr := cw.core.User()
-  if usr == nil {
-    userPane = cw.createOnboardingBox()
-  } else {
-    cw.userNameEntry = widget.NewEntry()
-    cw.userNameEntry.SetText(usr.Name)
-
-    names2 := make([]string, len(usr.Agents))
-    for i, a := range usr.Agents {
-      names2[i] = a.Name
-    }
-    cw.userDefaultAgent = widget.NewSelect(names2, nil)
-    if usr.DefaultAgent != nil {
-      cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
-    }
-    cw.userForm = &widget.Form{
-      Items: []*widget.FormItem{
-        {Text: "User Name",     Widget: cw.userNameEntry},
-        {Text: "Default Agent", Widget: cw.userDefaultAgent},
-      },
-      OnSubmit: func() {
-        usr.Name = cw.userNameEntry.Text
-        if sel := cw.userDefaultAgent.Selected; sel != "" {
-          for _, m := range usr.Agents {
-            if m.Name == sel {
-              a, err := agent.NewAgent(m.Name, m.Model, nil)
-              if err != nil {
-                dialog.ShowError(err, cw.wnd)
-                return
-              }
-              usr.DefaultAgent = a
-            }
-          }
-        }
-        cw.refreshUserStatus()
-        cw.mainTabs.SelectTabIndex(0)
-      },
-      OnCancel: func() {
-        cw.userNameEntry.SetText(usr.Name)
-        if usr.DefaultAgent != nil {
-          cw.userDefaultAgent.SetSelected(usr.DefaultAgent.Name)
-        }
-        cw.mainTabs.SelectTabIndex(0)
-      },
-    }
-    userPane = container.NewVBox(cw.userForm)
-  }
 
   // ─── 6) PUT ’EM ALL TOGETHER ─────────────────────────────────
   cw.mainTabs = container.NewAppTabs(
     container.NewTabItem("Chat",  chatPane),
     container.NewTabItem("Tools", toolsTabs),
 		cw.makeAgentTab(),
-    container.NewTabItem("User",  userPane),
+		cw.makeUserTab(),
   )
   cw.mainTabs.SetTabLocation(container.TabLocationTop)
 
