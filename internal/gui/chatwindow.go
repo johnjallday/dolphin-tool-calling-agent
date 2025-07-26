@@ -3,6 +3,7 @@ package gui
 import (
   "context"
   "fmt"
+	
 
   "fyne.io/fyne/v2"
   "fyne.io/fyne/v2/container"
@@ -23,6 +24,7 @@ type ChatWindow struct {
 	// used to repopulate “Current Tools”
   toolsList     *fyne.Container
   toolpacksPane fyne.CanvasObject
+	toolpacksList   *fyne.Container
 
 	userNameEntry    *widget.Entry
   userDefaultAgent *widget.Select

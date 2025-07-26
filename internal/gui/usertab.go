@@ -20,7 +20,6 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   // a) build the form widgets
   cw.userNameEntry = widget.NewEntry()
   cw.userNameEntry.SetText(usr.Name)
-
   names := make([]string, len(usr.Agents))
   for i, a := range usr.Agents {
     names[i] = a.Name

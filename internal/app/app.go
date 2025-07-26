@@ -5,6 +5,7 @@ import (
   "os"
   "path/filepath"
 	"context"
+	"strings"
 
   "github.com/BurntSushi/toml"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
@@ -385,4 +386,30 @@ func (a *DefaultApp) EditAgent(oldName string, meta AgentMeta) error {
     }
 
     return nil
+}
+
+
+
+// Toolpacks returns the list of plugin “names” found under ./plugins.
+// It looks for files ending in .so, and returns each filename minus the .so.
+func (a *DefaultApp) Toolpacks() []string {
+  const pluginDir = "plugins"
+  var names []string
+
+  entries, err := os.ReadDir(pluginDir)
+  if err != nil {
+    // no plugins folder or unreadable → just return empty
+    return names
+  }
+  for _, e := range entries {
+    if e.IsDir() {
+      continue
+    }
+    if filepath.Ext(e.Name()) != ".so" {
+      continue
+    }
+    base := strings.TrimSuffix(e.Name(), ".so")
+    names = append(names, base)
+  }
+  return names
 }

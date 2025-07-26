@@ -4,7 +4,6 @@ Often times, we don't really need a complicated AI that does everything for us.
 Not all AI fits all. Why not build your own tool?
 
 
-
 ## Requirement
 Go 1.24 or later\n
 OpenAI api key
@@ -17,14 +16,22 @@ git clone https://github.com/johnjallday/dolphin-tool-calling-agent.git
 ## Build
 To Build an REPL version
 ```bash
-go build -o dolphin_repl ./cmd/tui
+go build -o dolphin_repl ./cmd/gui
 ./dolphin_repl
 ```
 
 Or simply
 ```bash
-go run ./cmd/tui
+go run ./cmd/gui
 ```
+Or just type
+```bash
+make
+```
+
+## Note
+This app is at a very early stage. More userfriendly updates will come soon.
+In order to setup properly, checkout all the .toml files in the project.
 
 ## Usage
 For Reaper users, I created simple tools that can read and launch your custom Lua scripts. 

@@ -35,4 +35,5 @@ type App interface {
 	UnloadUser() error
 	UnloadAgent() error
 	Tools() []tools.Tool
+	Toolpacks() []string
 }
