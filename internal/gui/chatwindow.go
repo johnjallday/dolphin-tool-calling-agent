@@ -95,14 +95,22 @@ func (cw *ChatWindow) buildCenter() fyne.CanvasObject {
   // … your existing logic to choose between
   // onboardingBox, agentOnboardingBox, or cw.historyScroll …
   // e.g.:
+
+  // if no users at all → show user‐onboarding
   if len(cw.core.Users()) == 0 {
     return cw.createOnboardingBox()
   }
-  // … etc …
-  // default:
+
+  // if we have a user, but no agent loaded yet → show agent‐onboarding
+  if cw.core.Agent() == nil {
+    return cw.createAgentOnboardingBox()
+  }
+
+  // otherwise we have both a user and an agent → show chat history
   cw.historyBox = container.NewVBox()
   cw.historyScroll = container.NewVScroll(cw.historyBox)
   return cw.historyScroll
+
 }
 
 
@@ -177,11 +185,3 @@ func (cw *ChatWindow) appendMessage(who, msg string) {
 func (cw *ChatWindow) ShowAndRun() {
   cw.wnd.ShowAndRun()
 }
-
-
-
-
-
-
-
-
