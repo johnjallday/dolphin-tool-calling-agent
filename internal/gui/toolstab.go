@@ -18,7 +18,7 @@ func (cw *ChatWindow) buildToolsPane() fyne.CanvasObject {
   // b) build the toolpacks placeholder
   cw.toolpacksPane = container.NewCenter(
     widget.NewLabelWithStyle(
-      "Toolpacks go here…",
+      "Available Toolpacks",
       fyne.TextAlignCenter,
       fyne.TextStyle{Italic: true},
     ),

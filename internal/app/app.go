@@ -114,6 +114,44 @@ func (a *DefaultApp) Agent() *agent.Agent {
   return a.agent
 }
 
+// SetDefaultAgent persists the named agent as the default in the user's
+// TOML, then loads it so that a.agent and a.user.DefaultAgent get set.
+func (a *DefaultApp) SetDefaultAgent(agentName string) error {
+  // 1) must have a user loaded
+  if a.user == nil {
+    return fmt.Errorf("no user loaded")
+  }
+
+  // 2) make sure that agentName is one of a.user.Agents
+  var ok bool
+  for _, m := range a.user.Agents {
+    if m.Name == agentName {
+      ok = true
+      break
+    }
+  }
+  if !ok {
+    return fmt.Errorf("agent %q not found for user %q", agentName, a.user.Name)
+  }
+
+  // 3) load the on‐disk config, set the default_agent field, save it
+  cfg, err := store.LoadUserConfig(a.user.Name)
+  if err != nil {
+    return fmt.Errorf("could not load user config: %w", err)
+  }
+  cfg.DefaultAgent = agentName
+  if err := store.SaveUserConfig(cfg); err != nil {
+    return fmt.Errorf("could not save user config: %w", err)
+  }
+
+  // 4) load (or reload) that agent so both a.agent and a.user.DefaultAgent update
+  if err := a.LoadAgent(agentName); err != nil {
+    return fmt.Errorf("could not load agent %q: %w", agentName, err)
+  }
+
+  return nil
+}
+
 // LoadAgent selects one of the user’s agents by name and sets it to agent.
 func (a *DefaultApp) LoadAgent(agentName string) error {
   if a.user == nil {

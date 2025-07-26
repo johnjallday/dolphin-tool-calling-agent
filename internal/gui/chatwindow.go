@@ -92,10 +92,6 @@ func (cw *ChatWindow) buildUI() {
 
 
 func (cw *ChatWindow) buildCenter() fyne.CanvasObject {
-  // … your existing logic to choose between
-  // onboardingBox, agentOnboardingBox, or cw.historyScroll …
-  // e.g.:
-
   // if no users at all → show user‐onboarding
   if len(cw.core.Users()) == 0 {
     return cw.createOnboardingBox()

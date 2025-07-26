@@ -47,40 +47,47 @@ func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
 }
 
 
- func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container { nameEntry := widget.NewEntry()
-   nameEntry.SetPlaceHolder("Enter agent name")
+func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container {
+  nameEntry := widget.NewEntry()
+  nameEntry.SetPlaceHolder("Enter agent name")
 
-   createBtn := widget.NewButton("Create Agent", func() {
-     agentName := strings.TrimSpace(nameEntry.Text)
-     if agentName == "" {
-       dialog.ShowError(fmt.Errorf("agent name cannot be empty"), cw.wnd)
-       return
-     }
-     meta := app.AgentMeta{
-       Name:      agentName,
-       Model:     "gpt-4.1-nano",
-       ToolPaths: nil,
-     }
-     // 1) create the agent on-disk/in-memory
-     if err := cw.core.CreateAgent(meta); err != nil {
-       dialog.ShowError(err, cw.wnd)
-       return
-     }
-    // 2) immediately load it so core.Agent() != nil
-    if err := cw.core.LoadAgent(agentName); err != nil {
-      dialog.ShowError(fmt.Errorf("could not load new agent %q: %w", agentName, err), cw.wnd)
+  createBtn := widget.NewButton("Create Agent", func() {
+    agentName := strings.TrimSpace(nameEntry.Text)
+    if agentName == "" {
+      dialog.ShowError(fmt.Errorf("agent name cannot be empty"), cw.wnd)
       return
     }
-     // 3) now that we have an agent loaded, rebuild into the real chat UI
-     cw.buildUI()
-   })
 
-   return container.NewVBox(
-     widget.NewLabelWithStyle(
-       "🎉 Welcome to Dolphin Chat! 🐬", fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
-     ),
-     widget.NewLabel("Let’s create your first agent:"),
-     nameEntry,
-     createBtn,
-   )
- }
+    meta := app.AgentMeta{
+      Name:      agentName,
+      Model:     "gpt-4.1-nano",
+      ToolPaths: nil,
+    }
+
+    // 1) append it to the user’s TOML
+    if err := cw.core.CreateAgent(meta); err != nil {
+      dialog.ShowError(err, cw.wnd)
+      return
+    }
+
+    // 2) persist & load as the new default agent
+    if err := cw.core.SetDefaultAgent(agentName); err != nil {
+      dialog.ShowError(fmt.Errorf("could not set default agent: %w", err), cw.wnd)
+      return
+    }
+
+    // 3) now rebuild the UI into the real chat view
+    cw.buildUI()
+  })
+
+  return container.NewVBox(
+    widget.NewLabelWithStyle(
+      "🎉 Welcome to Dolphin Chat! 🐬",
+      fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
+    ),
+    widget.NewLabel("Let’s create your first agent:"),
+    nameEntry,
+    createBtn,
+  )
+}
+ 
