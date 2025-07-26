@@ -29,6 +29,13 @@ type ChatWindow struct {
 	userNameEntry    *widget.Entry
   userDefaultAgent *widget.Select
   userForm         *widget.Form
+	userDefaultSelect *widget.Select
+	userSelect        *widget.Select
+  newUserEntry      *widget.Entry
+  availAgentsBox    *fyne.Container
+  newAgentName      *widget.Entry
+  newAgentModel     *widget.Entry
+	newAgentTools     *widget.CheckGroup
 
 
   statusLabel *widget.Label
