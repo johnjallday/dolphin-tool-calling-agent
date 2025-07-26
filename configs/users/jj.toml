@@ -1,5 +1,5 @@
 name = "jj"
-default_agent = "example_agent"
+default_agent = "reaper_agent"
 
 [[agents]]
   name = "reaper_agent"
@@ -13,4 +13,12 @@ default_agent = "example_agent"
 
 [[agents]]
   name = "test"
+  model = "gpt-4.1-nano"
+
+[[agents]]
+  name = "hiji"
+  model = "gpt-4.1-nano"
+
+[[agents]]
+  name = "ㅁㄴㅇ"
   model = "gpt-4.1-nano"

@@ -8,21 +8,28 @@ import (
   "fyne.io/fyne/v2/widget"
 )
 
-// WhiteMultiLineEntry is a drop-in replacement for widget.NewMultiLineEntry()
-// whose text (and placeholder) is forced white.
-type WhiteMultiLineEntry struct{ *widget.Entry }
+// WhiteMultiLineEntry is a decorator around a normal multi‐line Entry
+// that forces the text (and placeholder) to be white.
+type WhiteMultiLineEntry struct {
+  widget.Entry
+}
 
 func NewWhiteMultiLineEntry() *WhiteMultiLineEntry {
-  return &WhiteMultiLineEntry{widget.NewMultiLineEntry()}
+  // Note: widget.NewMultiLineEntry returns *widget.Entry
+  e := &WhiteMultiLineEntry{Entry: *widget.NewMultiLineEntry()}
+  e.ExtendBaseWidget(e)
+  return e
 }
 
 func (w *WhiteMultiLineEntry) CreateRenderer() fyne.WidgetRenderer {
+  // get the normal Entry renderer
   rend := w.Entry.CreateRenderer()
+  // tweak every canvas.Text in it
   for _, obj := range rend.Objects() {
     if txt, ok := obj.(*canvas.Text); ok {
       txt.Color = color.White
     }
   }
-  rend.Refresh()
+  // no need to call rend.Refresh() here; Fyne will do that for you after CreateRenderer
   return rend
 }

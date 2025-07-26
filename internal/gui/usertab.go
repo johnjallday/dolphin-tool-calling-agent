@@ -1,24 +1,20 @@
 package gui
 
 import (
-  //"fmt"
-
   "fyne.io/fyne/v2"
   "fyne.io/fyne/v2/container"
   "fyne.io/fyne/v2/dialog"
-  "fyne.io/fyne/v2/widget"
   "fyne.io/fyne/v2/layout"
+  "fyne.io/fyne/v2/widget"
 
-  // "github.com/johnjallday/dolphin-tool-calling-agent/internal/agent"
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
 
-// buildUserPane builds the contents of the “User” tab,
-// wiring it to core.Users(), core.CreateUser, core.LoadUser, core.SetDefaultAgent, core.Agents(), core.CreateAgent, etc.
+// buildUserPane builds the contents of the “User” tab.
 func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   // if no user loaded, offer to select or create
   if cw.core.User() == nil {
-    users := cw.core.Users() // []string of existing userIDs
+    users := cw.core.Users()
     cw.userSelect = widget.NewSelect(users, nil)
     cw.userSelect.PlaceHolder = "Choose existing…"
 
@@ -37,19 +33,20 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
     createBtn := widget.NewButton("Create", func() {
       id := cw.newUserEntry.Text
       if id == "" {
-        dialog.ShowInformation("Missing name", "Please enter a user ID", cw.wnd)
+        dialog.ShowInformation("Missing name",
+          "Please enter a user ID", cw.wnd)
         return
       }
       if err := cw.core.CreateUser(id); err != nil {
         dialog.ShowError(err, cw.wnd)
         return
       }
-      // we just loaded the new user in memory
       cw.refreshUserTab()
     })
 
     return container.NewVBox(
-      widget.NewLabelWithStyle("No user loaded", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+      widget.NewLabelWithStyle("No user loaded",
+        fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
       widget.NewSeparator(),
       widget.NewLabel("Select an existing user:"),
       container.NewHBox(cw.userSelect, loadBtn),
@@ -66,8 +63,7 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   cw.userNameEntry = widget.NewEntry()
   cw.userNameEntry.SetText(usr.Name)
 
-  // build DefaultAgent select from core.Agents()
-  metas := cw.core.Agents()        // []app.AgentMeta
+  metas := cw.core.Agents()
   names := make([]string, len(metas))
   for i, m := range metas {
     names[i] = m.Name
@@ -84,10 +80,7 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
       {Text: "Default Agent", Widget: cw.userDefaultSelect},
     },
     OnSubmit: func() {
-      // 1) rename in memory (we do not persist name→filename here)
       usr.Name = cw.userNameEntry.Text
-
-      // 2) set default agent (persists to TOML)
       if sel := cw.userDefaultSelect.Selected; sel != "" {
         if err := cw.core.SetDefaultAgent(sel); err != nil {
           dialog.ShowError(err, cw.wnd)
@@ -95,10 +88,9 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
         }
       }
       cw.refreshUserTab()
-      cw.mainTabs.SelectTabIndex(0) // back to Chat
+      cw.mainTabs.SelectTabIndex(0)
     },
     OnCancel: func() {
-      // rollback
       cw.userNameEntry.SetText(usr.Name)
       if usr.DefaultAgent != nil {
         cw.userDefaultSelect.SetSelected(usr.DefaultAgent.Name)
@@ -110,77 +102,50 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   }
 
   // b) Available Agents list
-  cw.availAgentsBox = container.NewVBox(widget.NewLabelWithStyle(
-    "Available Agents", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+  cw.availAgentsBox = container.NewVBox(
+    widget.NewLabelWithStyle("Available Agents",
+      fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
   )
   if len(metas) == 0 {
     cw.availAgentsBox.Add(widget.NewLabel("— none —"))
   } else {
     for _, m := range metas {
-      cw.availAgentsBox.Add(
-        container.NewHBox(
-          widget.NewLabel(m.Name),
-          layout.NewSpacer(),
-          widget.NewButton("Switch to", func(name string) func() {
-            return func() {
-              if err := cw.core.SwitchAgent(name); err != nil {
-                dialog.ShowError(err, cw.wnd)
-                return
-              }
-              cw.refreshUserTab()
+      cw.availAgentsBox.Add(container.NewHBox(
+        widget.NewLabel(m.Name),
+        layout.NewSpacer(),
+        widget.NewButton("Switch to", func(name string) func() {
+          return func() {
+            if err := cw.core.SwitchAgent(name); err != nil {
+              dialog.ShowError(err, cw.wnd)
+              return
             }
-          }(m.Name)),
-        ),
-      )
+            cw.refreshUserTab()
+          }
+        }(m.Name)),
+      ))
     }
   }
 
-  // c) “Add Agent” sub‐form
-  cw.newAgentName = widget.NewEntry()
-  cw.newAgentName.SetPlaceHolder("Agent Name")
-  cw.newAgentModel = widget.NewEntry()
-  cw.newAgentModel.SetPlaceHolder("Model ID (e.g. gpt-4)")
-
-  // multi-select of on-disk toolpacks using a CheckGroup
-  tp := cw.core.Toolpacks()
-  var selectedTools []string
-  cw.newAgentTools = widget.NewCheckGroup(tp, func(list []string) {
-    selectedTools = list
-  })
-
-  addAgentBtn := widget.NewButton("Create Agent", func() {
-    name  := cw.newAgentName.Text
-    model := cw.newAgentModel.Text
-		tools := selectedTools
-    if name == "" || model == "" {
-      dialog.ShowInformation("Missing fields",
-        "Please fill Agent Name and Model", cw.wnd)
-      return
-    }
-    meta := app.AgentMeta{
-      Name:      name,
-      Model:     model,
-      ToolPaths: tools,
-    }
-    if err := cw.core.CreateAgent(meta); err != nil {
-      dialog.ShowError(err, cw.wnd)
-      return
-    }
-    // clear fields & refresh
-    cw.newAgentName.SetText("")
-    cw.newAgentModel.SetText("")
-    cw.newAgentTools.SetSelected([]string{})
-    cw.refreshUserTab()
-  })
-
-	addAgentForm := container.NewVBox(
-    widget.NewLabelWithStyle("Add New Agent", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-    widget.NewForm(
-      &widget.FormItem{Text: "Name",   Widget: cw.newAgentName},
-      &widget.FormItem{Text: "Model",  Widget: cw.newAgentModel},
-      &widget.FormItem{Text: "Plugins",Widget: cw.newAgentTools},
-    ),
-    addAgentBtn,
+  // c) “Add Agent” sub‐form using our custom widget
+  addAgentForm := NewAddAgentForm(
+    cw.core.Toolpacks(),
+    func(name, model string, tools []string) {
+      if name == "" || model == "" {
+        dialog.ShowInformation("Missing fields",
+          "Please fill Agent Name and Model", cw.wnd)
+        return
+      }
+      meta := app.AgentMeta{
+        Name:      name,
+        Model:     model,
+        ToolPaths: tools,
+      }
+      if err := cw.core.CreateAgent(meta); err != nil {
+        dialog.ShowError(err, cw.wnd)
+        return
+      }
+      cw.refreshUserTab()
+    },
   )
 
   // d) assemble everything
@@ -193,14 +158,10 @@ func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
   )
 }
 
-
-
 func (cw *ChatWindow) makeUserTab() *container.TabItem {
   return container.NewTabItem("User", cw.buildUserPane())
 }
 
-
-// refreshUserTab updates the User tab in place.
 func (cw *ChatWindow) refreshUserTab() {
   const idx = 1
   if idx >= len(cw.mainTabs.Items) {
