@@ -22,3 +22,8 @@ default_agent = "reaper_agent"
 [[agents]]
   name = "ㅁㄴㅇ"
   model = "gpt-4.1-nano"
+
+[[agents]]
+  name = "ateast"
+  model = "gpt-4.1-nano"
+  plugins = ["reascript_launcher"]

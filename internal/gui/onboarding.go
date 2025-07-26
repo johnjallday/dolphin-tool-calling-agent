@@ -1,19 +1,19 @@
 package gui
 
 import (
-  "fyne.io/fyne/v2"
-  "fyne.io/fyne/v2/widget"
-  "fyne.io/fyne/v2/dialog"
-  "fyne.io/fyne/v2/container"
+  "fmt"
+  "strings"
 
-	"strings"
-	"fmt"
+  "fyne.io/fyne/v2"
+  "fyne.io/fyne/v2/container"
+  "fyne.io/fyne/v2/dialog"
+  "fyne.io/fyne/v2/widget"
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
 
-
-func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
+// createOnboardingBox shows when there are zero users.
+func (cw *ChatWindow) createOnboardingBox() fyne.CanvasObject {
   nameEntry := widget.NewEntry()
   nameEntry.SetPlaceHolder("Enter username")
 
@@ -23,18 +23,20 @@ func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
       dialog.ShowError(fmt.Errorf("username cannot be empty"), cw.wnd)
       return
     }
-    // 1) create the user on-disk/in-memory
+    // 1) create the user
     if err := cw.core.CreateUser(userID); err != nil {
       dialog.ShowError(err, cw.wnd)
       return
     }
-    // 2) mark them as the default user (this also calls LoadUser under the hood)
+    // 2) set as default (loads it, too)
     if err := cw.core.SetDefaultUser(userID); err != nil {
       dialog.ShowError(fmt.Errorf("could not set default user: %w", err), cw.wnd)
       return
     }
-    // 3) rebuild the whole UI now that we have at least one user
-    cw.buildUI()
+    // 3) now re‐draw everything
+    cw.RefreshAll()
+    // go back to “Chat” tab
+    cw.mainTabs.SelectTabIndex(0)
   })
 
   return container.NewVBox(
@@ -46,8 +48,8 @@ func (cw *ChatWindow) createOnboardingBox() *fyne.Container {
   )
 }
 
-
-func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container {
+// createAgentOnboardingBox shows when we have a user but no agent.
+func (cw *ChatWindow) createAgentOnboardingBox() fyne.CanvasObject {
   nameEntry := widget.NewEntry()
   nameEntry.SetPlaceHolder("Enter agent name")
 
@@ -64,30 +66,27 @@ func (cw *ChatWindow) createAgentOnboardingBox() *fyne.Container {
       ToolPaths: nil,
     }
 
-    // 1) append it to the user’s TOML
+    // 1) create the agent
     if err := cw.core.CreateAgent(meta); err != nil {
       dialog.ShowError(err, cw.wnd)
       return
     }
-
-    // 2) persist & load as the new default agent
+    // 2) set as default & load
     if err := cw.core.SetDefaultAgent(agentName); err != nil {
       dialog.ShowError(fmt.Errorf("could not set default agent: %w", err), cw.wnd)
       return
     }
-
-    // 3) now rebuild the UI into the real chat view
-    cw.buildUI()
+    // 3) re‐draw everything
+    cw.RefreshAll()
+    // back to “Chat” tab
+    cw.mainTabs.SelectTabIndex(0)
   })
 
   return container.NewVBox(
-    widget.NewLabelWithStyle(
-      "🎉 Welcome to Dolphin Chat! 🐬",
-      fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
-    ),
+    widget.NewLabelWithStyle("🎉 Welcome to Dolphin Chat! 🐬",
+      fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
     widget.NewLabel("Let’s create your first agent:"),
     nameEntry,
     createBtn,
   )
 }
- 

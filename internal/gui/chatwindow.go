@@ -3,123 +3,179 @@ package gui
 import (
   "context"
   "fmt"
-	
 
   "fyne.io/fyne/v2"
   "fyne.io/fyne/v2/container"
+  "fyne.io/fyne/v2/dialog"
   "fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
 
   "github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
 
+// ChatWindow holds our Fyne window, the core App, and all tabs.
 type ChatWindow struct {
-  app         fyne.App        // ← keep the fyne.App so we can NewWindow
-  wnd         fyne.Window
-  core        app.App
+  app   fyne.App
+  wnd   fyne.Window
+  core  app.App
 
+  mainTabs *container.AppTabs
 
- 	mainTabs *container.AppTabs
+  // cached TabItems
+  chatTab  *container.TabItem
+  toolsTab *container.TabItem
+  agentTab *container.TabItem
+  userTab  *container.TabItem
 
-	// used to repopulate “Current Tools”
-  toolsList     *fyne.Container
-  toolpacksPane fyne.CanvasObject
-	toolpacksList   *fyne.Container
+  // chat widgets
+  historyBox    *fyne.Container
+  historyScroll *container.Scroll
+  inputEntry    *widget.Entry
 
-	userNameEntry    *widget.Entry
-  userDefaultAgent *widget.Select
-  userForm         *widget.Form
-	userDefaultSelect *widget.Select
-	userSelect        *widget.Select
-  newUserEntry      *widget.Entry
-  availAgentsBox    *fyne.Container
-  newAgentName      *widget.Entry
-  newAgentModel     *widget.Entry
-	newAgentTools     *widget.CheckGroup
-
-
+  // top bar
   statusLabel *widget.Label
-	agentSelect     *widget.Select
-	agentNameEntry  *widget.Entry
-	agentModelEntry *widget.Entry
-	agentForm       *widget.Form
 
-  historyBox 		 	*fyne.Container
-  historyScroll		*container.Scroll
+  // tools widgets
+  toolsList     *fyne.Container
+  toolpacksList *fyne.Container
 
-  onboardingBox *fyne.Container
+  // agent widgets
+  agentList *fyne.Container
 
-  inputEntry  *widget.Entry
+  // user widgets
+  userSelect        *widget.Select
+  newUserEntry      *widget.Entry
+  userNameEntry     *widget.Entry
+  userDefaultSelect *widget.Select
 }
 
+// NewChatWindow builds the window and all tabs exactly once.
 func NewChatWindow(fy fyne.App, core app.App) *ChatWindow {
   w := fy.NewWindow("🐬 Dolphin Chat 🐬")
   cw := &ChatWindow{app: fy, wnd: w, core: core}
-  cw.buildUI()
+
+  // cache each TabItem
+  cw.chatTab = cw.makeChatTab()
+  cw.toolsTab = cw.makeToolsTab()
+  cw.agentTab = cw.makeAgentTab()
+  cw.userTab = cw.makeUserTab()
+
+  // put them into AppTabs
+  cw.mainTabs = container.NewAppTabs(
+    cw.chatTab, cw.toolsTab, cw.agentTab, cw.userTab,
+  )
+  cw.mainTabs.SetTabLocation(container.TabLocationTop)
+
+  // top bar with status
+  cw.statusLabel = widget.NewLabel("")
+  topBar := container.NewHBox(cw.statusLabel, layout.NewSpacer())
+
+  // assemble
+  content := container.NewBorder(topBar, nil, nil, nil, cw.mainTabs)
+  w.SetContent(content)
+  w.Resize(fyne.NewSize(700, 500))
+
+  // initial fill
+  cw.RefreshAll()
+
   return cw
 }
 
+// ShowAndRun pops up the window.
+func (cw *ChatWindow) ShowAndRun() {
+  cw.wnd.ShowAndRun()
+}
 
-func (cw *ChatWindow) buildUI() {
-  // ─── 1) TOP BAR ──────────────────────────────────────────────
-  cw.statusLabel = widget.NewLabel("")
+// RefreshAll updates every pane in the window.
+func (cw *ChatWindow) RefreshAll() {
+  // 1) status bar
   cw.refreshUserStatus()
 
-  topBar := container.NewHBox(
-    cw.statusLabel,
-    layout.NewSpacer(),
-  )
+  // 2) chat history (in case underlying messages have changed)
+  cw.historyBox.Refresh()
+  cw.historyScroll.ScrollToBottom()
 
-  // ─── 2) CHAT TAB ─────────────────────────────────────────────
+  // 3) tools
+  cw.refreshCurrentToolsList()
+  cw.refreshToolpacksList()
+
+  // 4) agent
+  cw.agentTab.Content = cw.buildAgentPane()
+  cw.agentTab.Content.Refresh()
+
+  // 5) user
+  cw.userTab.Content = cw.buildUserPane()
+  cw.userTab.Content.Refresh()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAT TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+func (cw *ChatWindow) makeChatTab() *container.TabItem {
+  // input area
   cw.inputEntry = widget.NewEntry()
   cw.inputEntry.SetPlaceHolder("Type your message…")
   cw.inputEntry.OnSubmitted = func(_ string) { cw.sendMessage() }
   sendBtn := widget.NewButton("Send", cw.sendMessage)
+  bottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
 
-  chatBottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
-  chatCenter := cw.buildCenter()
-  chatPane   := container.NewBorder(nil, chatBottom, nil, nil, chatCenter)
-	
-  // ─── 3) PUT ’EM ALL TOGETHER ─────────────────────────────────
-  cw.mainTabs = container.NewAppTabs(
-    container.NewTabItem("Chat",  chatPane),
-    //container.NewTabItem("Tools", toolsTabs),
-		cw.makeToolsTab(),
-		cw.makeAgentTab(),
-		cw.makeUserTab(),
-  )
-  cw.mainTabs.SetTabLocation(container.TabLocationTop)
-
-  content := container.NewBorder(
-    topBar, nil, nil, nil,
-    cw.mainTabs,
-  )
-  cw.wnd.SetContent(content)
-  cw.wnd.Resize(fyne.NewSize(600, 480))
-}
-
-
-
-func (cw *ChatWindow) buildCenter() fyne.CanvasObject {
-  // if no users at all → show user‐onboarding
-  if len(cw.core.Users()) == 0 {
-    return cw.createOnboardingBox()
-  }
-
-  // if we have a user, but no agent loaded yet → show agent‐onboarding
-  if cw.core.Agent() == nil {
-    return cw.createAgentOnboardingBox()
-  }
-
-  // otherwise we have both a user and an agent → show chat history
+  // history area
   cw.historyBox = container.NewVBox()
   cw.historyScroll = container.NewVScroll(cw.historyBox)
-  return cw.historyScroll
 
+  pane := container.NewBorder(nil, bottom, nil, nil, cw.historyScroll)
+  return container.NewTabItem("Chat", pane)
 }
 
+func (cw *ChatWindow) sendMessage() {
+  txt := cw.inputEntry.Text
+  if txt == "" {
+    return
+  }
+  cw.appendMessage("You", txt)
+  cw.inputEntry.SetText("")
+  cw.wnd.Canvas().Focus(cw.inputEntry)
 
-// refreshCurrentToolsList repopulates the list of .so plugins
+  go func() {
+    reply, err := cw.core.SendMessage(context.Background(), txt)
+    if err != nil {
+      cw.appendMessage("Error", err.Error())
+      return
+    }
+    cw.appendMessage("Agent", reply)
+  }()
+}
+
+func (cw *ChatWindow) appendMessage(who, msg string) {
+  cw.historyBox.Add(widget.NewLabel(fmt.Sprintf("%s: %s", who, msg)))
+  cw.historyBox.Refresh()
+  cw.historyScroll.ScrollToBottom()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOOLS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+func (cw *ChatWindow) makeToolsTab() *container.TabItem {
+  // a) Current Tools
+  cw.toolsList = container.NewVBox()
+  cw.refreshCurrentToolsList()
+  curScroll := container.NewVScroll(cw.toolsList)
+
+  // b) On‐disk Toolpacks
+  cw.toolpacksList = container.NewVBox()
+  cw.refreshToolpacksList()
+  packScroll := container.NewVScroll(cw.toolpacksList)
+
+  tabs := container.NewAppTabs(
+    container.NewTabItem("Current Tools", curScroll),
+    container.NewTabItem("Toolpacks", packScroll),
+  )
+  tabs.SetTabLocation(container.TabLocationTop)
+  return container.NewTabItem("Tools", tabs)
+}
+
 func (cw *ChatWindow) refreshCurrentToolsList() {
   cw.toolsList.Objects = nil
   for _, t := range cw.core.Tools() {
@@ -134,11 +190,174 @@ func (cw *ChatWindow) refreshCurrentToolsList() {
   cw.toolsList.Refresh()
 }
 
-func (cw *ChatWindow) topBar() *fyne.Container {
-  return container.NewHBox(
-    cw.statusLabel,
-    layout.NewSpacer(),
+func (cw *ChatWindow) refreshToolpacksList() {
+  cw.toolpacksList.Objects = nil
+  packs := cw.core.Toolpacks()
+  if len(packs) == 0 {
+    cw.toolpacksList.Add(widget.NewLabelWithStyle(
+      "No toolpacks found in ./plugins",
+      fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+    )
+  } else {
+    for _, name := range packs {
+      cw.toolpacksList.Add(container.NewHBox(
+        widget.NewLabel(name),
+        layout.NewSpacer(),
+      ))
+    }
+  }
+  cw.toolpacksList.Refresh()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENT TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+func (cw *ChatWindow) makeAgentTab() *container.TabItem {
+  return container.NewTabItem("Agent", cw.buildAgentPane())
+}
+
+func (cw *ChatWindow) buildAgentPane() fyne.CanvasObject {
+  metas := cw.core.Agents()
+  cw.agentList = container.NewVBox()
+  cw.agentList.Add(widget.NewLabelWithStyle(
+    "Existing Agents", fyne.TextAlignLeading, fyne.TextStyle{Bold: true},
+  ))
+
+  if len(metas) == 0 {
+    cw.agentList.Add(widget.NewLabel("— none —"))
+  } else {
+    for _, m := range metas {
+      btn := widget.NewButton("Switch to", func(name string) func() {
+        return func() {
+          if err := cw.core.SwitchAgent(name); err != nil {
+            dialog.ShowError(err, cw.wnd)
+            return
+          }
+          cw.refreshUserStatus()
+        }
+      }(m.Name))
+      cw.agentList.Add(container.NewHBox(
+        widget.NewLabel(fmt.Sprintf("%s (%s)", m.Name, m.Model)),
+        layout.NewSpacer(),
+        btn,
+      ))
+    }
+  }
+
+  // AddAgentForm (your existing form)
+  form := NewAddAgentForm(
+    cw.core.Toolpacks(),
+    func(name, model string, tools []string) {
+      if name == "" || model == "" {
+        dialog.ShowInformation("Missing fields",
+          "Please fill Agent Name and Model", cw.wnd)
+        return
+      }
+      meta := app.AgentMeta{Name: name, Model: model, ToolPaths: tools}
+      if err := cw.core.CreateAgent(meta); err != nil {
+        dialog.ShowError(err, cw.wnd)
+        return
+      }
+      // fully refresh the window
+      cw.RefreshAll()
+    },
   )
+
+  return container.NewVBox(cw.agentList, widget.NewSeparator(), form)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+func (cw *ChatWindow) makeUserTab() *container.TabItem {
+  return container.NewTabItem("User", cw.buildUserPane())
+}
+
+func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
+  if cw.core.User() == nil {
+    // no user yet
+    users := cw.core.Users()
+    cw.userSelect = widget.NewSelect(users, nil)
+    cw.userSelect.PlaceHolder = "Choose existing…"
+    load := widget.NewButton("Load", func() {
+      if sel := cw.userSelect.Selected; sel != "" {
+        if err := cw.core.SetDefaultUser(sel); err != nil {
+          dialog.ShowError(err, cw.wnd)
+          return
+        }
+        cw.RefreshAll()
+      }
+    })
+
+    cw.newUserEntry = widget.NewEntry()
+    cw.newUserEntry.SetPlaceHolder("New user ID")
+    create := widget.NewButton("Create", func() {
+      id := cw.newUserEntry.Text
+      if id == "" {
+        dialog.ShowInformation("Missing name",
+          "Please enter a user ID", cw.wnd)
+        return
+      }
+      if err := cw.core.CreateUser(id); err != nil {
+        dialog.ShowError(err, cw.wnd)
+        return
+      }
+      cw.RefreshAll()
+    })
+
+    return container.NewVBox(
+      widget.NewLabelWithStyle("No user loaded",
+        fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+      widget.NewSeparator(),
+      container.NewHBox(cw.userSelect, load),
+      widget.NewSeparator(),
+      container.NewHBox(cw.newUserEntry, create),
+    )
+  }
+
+  // editing an existing user
+  usr := cw.core.User()
+  cw.userNameEntry = widget.NewEntry()
+  cw.userNameEntry.SetText(usr.Name)
+
+  // select default agent
+  metas := cw.core.Agents()
+  names := make([]string, len(metas))
+  for i, m := range metas {
+    names[i] = m.Name
+  }
+  cw.userDefaultSelect = widget.NewSelect(names, nil)
+  cw.userDefaultSelect.PlaceHolder = "None"
+  if usr.DefaultAgent != nil {
+    cw.userDefaultSelect.SetSelected(usr.DefaultAgent.Name)
+  }
+
+  form := widget.NewForm(
+    &widget.FormItem{Text: "User Name",     Widget: cw.userNameEntry},
+    &widget.FormItem{Text: "Default Agent", Widget: cw.userDefaultSelect},
+  )
+  form.OnSubmit = func() {
+    usr.Name = cw.userNameEntry.Text
+    if sel := cw.userDefaultSelect.Selected; sel != "" {
+      if err := cw.core.SetDefaultAgent(sel); err != nil {
+        dialog.ShowError(err, cw.wnd)
+        return
+      }
+    }
+    cw.RefreshAll()
+    cw.mainTabs.SelectTabIndex(0)
+  }
+  form.OnCancel = func() {
+    cw.userNameEntry.SetText(usr.Name)
+    if usr.DefaultAgent != nil {
+      cw.userDefaultSelect.SetSelected(usr.DefaultAgent.Name)
+    }
+    cw.mainTabs.SelectTabIndex(0)
+  }
+
+  return container.NewVBox(form)
 }
 
 func (cw *ChatWindow) refreshUserStatus() {
@@ -147,46 +366,10 @@ func (cw *ChatWindow) refreshUserStatus() {
     if u.DefaultAgent != nil {
       def = u.DefaultAgent.Name
     }
-    cw.statusLabel.SetText(fmt.Sprintf("User: %s (Default Agent: %s)", u.Name, def))
+    cw.statusLabel.SetText(
+      fmt.Sprintf("User: %s (Default Agent: %s)", u.Name, def),
+    )
   } else {
     cw.statusLabel.SetText("User: None")
   }
-}
-
-// helper to build the history pane (so we can re-use it)
-func (cw *ChatWindow) buildCenterHistory(bottomBar *fyne.Container) {
-  cw.historyBox = container.NewVBox()
-  cw.historyScroll = container.NewVScroll(cw.historyBox)
-  cw.historyScroll.SetMinSize(fyne.NewSize(400, 300))
-}
-
-
-func (cw *ChatWindow) sendMessage() {
-  txt := cw.inputEntry.Text
-  if txt == "" {
-    return
-  }
-  cw.appendMessage("You", txt)
-  cw.inputEntry.SetText("")
-  cw.wnd.Canvas().Focus(cw.inputEntry)
-
-  fyne.Do(func() {
-    reply, err := cw.core.SendMessage(context.Background(), txt)
-    if err != nil {
-      cw.appendMessage("Error", err.Error())
-      return
-    }
-    cw.appendMessage("Agent", reply)
-  })
-}
-
-func (cw *ChatWindow) appendMessage(who, msg string) {
-  lbl := widget.NewLabel(fmt.Sprintf("%s: %s", who, msg))
-  cw.historyBox.Add(lbl)
-  cw.historyBox.Refresh()
-  cw.historyScroll.ScrollToBottom()
-}
-
-func (cw *ChatWindow) ShowAndRun() {
-  cw.wnd.ShowAndRun()
 }
