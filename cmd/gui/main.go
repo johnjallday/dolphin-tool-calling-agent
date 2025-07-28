@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+		"log"
 
     fyneapp "fyne.io/fyne/v2/app"
 		"fyne.io/fyne/v2/theme"
@@ -15,6 +16,18 @@ func main() {
         fmt.Println("init error:", err)
         return
     }
+
+		// local plugins
+		local := core.Toolpacks()
+
+		// remote packages
+		remote, err := core.ListRemoteToolpacks()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Local:", local)
+		fmt.Println("Remote:", remote)
+
 
     fy := fyneapp.New()
     //fy.Settings().SetTheme(gui.NewWhiteTextTheme())

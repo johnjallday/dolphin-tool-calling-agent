@@ -31,10 +31,11 @@ func NewApp() App {
 
 
 func (a *DefaultApp) Init() error {
-  // ensure configs/ and app_setting.toml exist
-  if err := store.EnsureAppSettingsDir(); err != nil {
-    return fmt.Errorf("ensure app settings: %w", err)
+	// ensure configs/ + app_setting.toml + toolpacks.toml
+  if err := store.EnsureConfigDir(); err != nil {
+    return fmt.Errorf("ensure config dir: %w", err)
   }
+
   // create subfolders if you still need them
   _ = os.MkdirAll(filepath.Join(store.DefaultConfigDir, "users"), 0755)
   _ = os.MkdirAll("plugins", 0755)
@@ -426,4 +427,18 @@ func (a *DefaultApp) Toolpacks() []string {
     names = append(names, base)
   }
   return names
+}
+
+// ListRemoteToolpacks reads configs/toolpacks.toml and returns each package name.
+func (a *DefaultApp) ListRemoteToolpacks() ([]string, error) {
+  pkgs, err := store.LoadRemoteToolpacks()
+  if err != nil {
+    return nil, fmt.Errorf("load remote toolpacks: %w", err)
+  }
+
+  names := make([]string, 0, len(pkgs))
+  for _, tp := range pkgs {
+    names = append(names, tp.Name)
+  }
+  return names, nil
 }

@@ -1,8 +1,6 @@
 # Public registry of Dolphin “tool‐packs”
 #
-[[
-toolpack
-]]
+[[toolpack]]
 name        = "file-utils"
 version     = "v0.1.0"
 description = "filesystem inspection utilities"

@@ -36,4 +36,5 @@ type App interface {
 	UnloadAgent() error
 	Tools() []tools.Tool
 	Toolpacks() []string
+	ListRemoteToolpacks() ([]string, error)
 }
