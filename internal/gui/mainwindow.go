@@ -1,9 +1,6 @@
 package gui
 
 import (
-  //"context"
-  //"fmt"
-
   "fyne.io/fyne/v2"
   "fyne.io/fyne/v2/container"
   "fyne.io/fyne/v2/layout"
@@ -107,6 +104,8 @@ func (cw *MainWindow) buildRoot() fyne.CanvasObject {
 
 // RefreshAll updates every pane in the window.
 func (cw *MainWindow) RefreshAll() {
+
+	cw.wnd.SetContent(cw.buildRoot())
   // 1) status bar
   cw.refreshUserStatus()
 
@@ -125,5 +124,6 @@ func (cw *MainWindow) RefreshAll() {
   // 5) user
   cw.userTab.Content = cw.buildUserPane()
   cw.userTab.Content.Refresh()
+
 }
 

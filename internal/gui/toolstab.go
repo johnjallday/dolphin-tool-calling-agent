@@ -14,9 +14,6 @@ import (
 // TOOLS TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-
-
-
 func (cw *MainWindow) makeToolsTab() *container.TabItem {
   // a) Current Tools
   cw.toolsList = container.NewVBox()
@@ -68,4 +65,8 @@ func (cw *MainWindow) refreshToolpacksList() {
     }
   }
   cw.toolpacksList.Refresh()
+}
+
+func (cw *MainWindow) PublicToolpacks(){
+	
 }

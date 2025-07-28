@@ -1,0 +1,9 @@
+# Public registry of Dolphin “tool‐packs”
+#
+[[
+toolpack
+]]
+name        = "file-utils"
+version     = "v0.1.0"
+description = "filesystem inspection utilities"
+url         = "https://example.com/toolpacks/file-utils-v0.1.0.zip"
