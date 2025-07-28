@@ -38,7 +38,7 @@ func (w *WhiteMultiLineEntry) CreateRenderer() fyne.WidgetRenderer {
 
 
 // buildAgentsList returns a VBox of all AgentMeta from core.Agents()
-func (cw *ChatWindow) buildAgentsList() *fyne.Container {
+func (cw *MainWindow) buildAgentsList() *fyne.Container {
   if cw.agentList == nil {
     cw.agentList = container.NewVBox()
   }

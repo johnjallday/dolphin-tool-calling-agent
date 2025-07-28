@@ -20,6 +20,6 @@ func main() {
     //fy.Settings().SetTheme(gui.NewWhiteTextTheme())
 		fy.Settings().SetTheme(gui.NewGreyedTextTheme(theme.DarkTheme()))
 
-    w := gui.NewChatWindow(fy, core)
+    w := gui.NewMainWindow(fy, core)
     w.ShowAndRun()
 }

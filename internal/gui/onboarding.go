@@ -13,7 +13,7 @@ import (
 )
 
 // createOnboardingBox shows when there are zero users.
-func (cw *ChatWindow) createOnboardingBox() fyne.CanvasObject {
+func (cw *MainWindow) createOnboardingBox() fyne.CanvasObject {
   nameEntry := widget.NewEntry()
   nameEntry.SetPlaceHolder("Enter username")
 
@@ -48,8 +48,8 @@ func (cw *ChatWindow) createOnboardingBox() fyne.CanvasObject {
   )
 }
 
-// createAgentOnboardingBox shows when we have a user but no agent.
-func (cw *ChatWindow) createAgentOnboardingBox() fyne.CanvasObject {
+// createAgentOnboardingBox shows when we have a user but no agent. 
+func (cw *MainWindow) createAgentOnboardingBox() fyne.CanvasObject {
   nameEntry := widget.NewEntry()
   nameEntry.SetPlaceHolder("Enter agent name")
 
