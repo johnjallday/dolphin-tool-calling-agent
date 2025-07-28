@@ -34,6 +34,7 @@ type MainWindow struct {
   // tools widgets
   toolsList     *fyne.Container
   toolpacksList *fyne.Container
+	remotetoolpacksList *fyne.Container
 
   // agent widgets
   agentList *fyne.Container

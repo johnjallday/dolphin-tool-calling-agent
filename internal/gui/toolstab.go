@@ -20,18 +20,50 @@ func (cw *MainWindow) makeToolsTab() *container.TabItem {
   cw.refreshCurrentToolsList()
   curScroll := container.NewVScroll(cw.toolsList)
 
-  // b) On‐disk Toolpacks
+  // b) On-disk Toolpacks
   cw.toolpacksList = container.NewVBox()
   cw.refreshToolpacksList()
-  packScroll := container.NewVScroll(cw.toolpacksList)
+  localScroll := container.NewVScroll(cw.toolpacksList)
+
+  // c) Remote Toolpacks
+  cw.remotetoolpacksList = container.NewVBox()
+  cw.refreshRemoteToolpacksList()
+  remoteScroll := container.NewVScroll(cw.remotetoolpacksList)
 
   tabs := container.NewAppTabs(
     container.NewTabItem("Current Tools", curScroll),
-    container.NewTabItem("Toolpacks", packScroll),
+    container.NewTabItem("Local Toolpacks", localScroll),
+    container.NewTabItem("Remote Toolpacks", remoteScroll),
   )
   tabs.SetTabLocation(container.TabLocationTop)
   return container.NewTabItem("Tools", tabs)
 }
+
+// refreshRemoteToolpacksList loads and displays the registry entries
+func (cw *MainWindow) refreshRemoteToolpacksList() {
+  cw.remotetoolpacksList.Objects = nil
+  packs, err := cw.core.ListRemoteToolpacks()
+  if err != nil {
+    cw.remotetoolpacksList.Add(widget.NewLabel(fmt.Sprintf(
+      "Error loading remote toolpacks: %v", err)))
+  } else if len(packs) == 0 {
+    cw.remotetoolpacksList.Add(widget.NewLabelWithStyle(
+      "No remote toolpacks found", fyne.TextAlignCenter,
+      fyne.TextStyle{Italic: true}))
+  } else {
+    for _, name := range packs {
+      cw.remotetoolpacksList.Add(container.NewHBox(
+        widget.NewLabel(name),
+        layout.NewSpacer(),
+      ))
+    }
+  }
+  cw.remotetoolpacksList.Refresh()
+}
+
+
+
+
 
 func (cw *MainWindow) refreshCurrentToolsList() {
   cw.toolsList.Objects = nil
@@ -67,6 +99,4 @@ func (cw *MainWindow) refreshToolpacksList() {
 
 }
 
-// func (cw *MainWindow) PublicToolpacks(){
-// 	list()
-// }
+
