@@ -38,6 +38,7 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
+				Description: "Sample Weather Plugin",
         Tools:   []tools.Tool{ WeatherTool },
     }
 }

@@ -155,6 +155,7 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
+				Description: "sample reaper manager plugin",
         Tools:   []tools.Tool{ CreateNewProjectTool },
     }
 }

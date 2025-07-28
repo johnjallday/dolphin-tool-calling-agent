@@ -29,6 +29,7 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
+				Description: "Test Toolpackage includes greeting",
         Tools:   []tools.Tool{ HelloTool },
     }
 }

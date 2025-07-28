@@ -1,30 +1,24 @@
+
 package gui
 
 import (
   "context"
   "fmt"
 
+  "fyne.io/fyne/v2"
   "fyne.io/fyne/v2/container"
-  //"fyne.io/fyne/v2/layout"
   "fyne.io/fyne/v2/widget"
-
-  //"github.com/johnjallday/dolphin-tool-calling-agent/internal/app"
 )
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CHAT TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
 func (cw *MainWindow) makeChatTab() *container.TabItem {
-  // input area
   cw.inputEntry = widget.NewEntry()
   cw.inputEntry.SetPlaceHolder("Type your message…")
   cw.inputEntry.OnSubmitted = func(_ string) { cw.sendMessage() }
+
   sendBtn := widget.NewButton("Send", cw.sendMessage)
   bottom := container.NewBorder(nil, nil, nil, sendBtn, cw.inputEntry)
 
-  // history area
   cw.historyBox = container.NewVBox()
   cw.historyScroll = container.NewVScroll(cw.historyBox)
 
@@ -37,22 +31,33 @@ func (cw *MainWindow) sendMessage() {
   if txt == "" {
     return
   }
+
+  // This is already on Fyne’s UI thread:
   cw.appendMessage("You", txt)
   cw.inputEntry.SetText("")
   cw.wnd.Canvas().Focus(cw.inputEntry)
 
-  go func() {
-    reply, err := cw.core.SendMessage(context.Background(), txt)
+  // Do the network/agent call in a goroutine
+  go func(userText string) {
+    reply, err := cw.core.SendMessage(context.Background(), userText)
     if err != nil {
-      cw.appendMessage("Error", err.Error())
+      // schedule error on the UI thread
+      fyne.Do(func() {
+        cw.appendMessage("Error", err.Error())
+      })
       return
     }
-    cw.appendMessage("Agent", reply)
-  }()
+    // schedule agent reply on the UI thread
+    fyne.Do(func() {
+      cw.appendMessage("Agent", reply)
+    })
+  }(txt)
 }
 
+// appendMessage _must_ run on the UI thread.
 func (cw *MainWindow) appendMessage(who, msg string) {
-  cw.historyBox.Add(widget.NewLabel(fmt.Sprintf("%s: %s", who, msg)))
+  lbl := widget.NewLabel(fmt.Sprintf("%s: %s", who, msg))
+  cw.historyBox.Add(lbl)
   cw.historyBox.Refresh()
   cw.historyScroll.ScrollToBottom()
 }

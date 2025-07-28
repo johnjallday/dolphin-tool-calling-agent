@@ -5,6 +5,9 @@ import (
 	"github.com/openai/openai-go"
 )
 
+
+
+
 // Tool holds the schema and executor for a function-calling tool.
 type Tool struct {
 	Name        string
@@ -14,10 +17,11 @@ type Tool struct {
 }
 
 type ToolPackage struct {
-	Name		string
-	Version string
-	Link    string
-	Tools   []Tool
+  Name        string `toml:"name"`
+  Version     string `toml:"version"`
+  Link        string `toml:"link"`
+  Description string `toml:"description,omitempty"`
+  Tools       []Tool `toml:"-"`      // ← never read/write this from TOML
 }
 
 func (tp ToolPackage) String() string {

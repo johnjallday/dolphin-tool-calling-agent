@@ -107,6 +107,7 @@ func PluginPackage() tools.ToolPackage {
 				Name:		 packName,
         Version: packVersion,
         Link:    packLink,
+				Description: "Sample Calculator plugin",
         Tools:   []tools.Tool{ 
 					AddTool, 
 					SubtractTool,
