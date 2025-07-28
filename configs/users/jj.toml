@@ -1,5 +1,5 @@
 name = "jj"
-default_agent = "reaper_agent"
+default_agent = "example_agent"
 
 [[agents]]
   name = "reaper_agent"

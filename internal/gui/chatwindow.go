@@ -47,6 +47,7 @@ type ChatWindow struct {
   newUserEntry      *widget.Entry
   userNameEntry     *widget.Entry
   userDefaultSelect *widget.Select
+	userList *fyne.Container
 }
 
 // NewChatWindow builds the window and all tabs exactly once.
@@ -275,90 +276,99 @@ func (cw *ChatWindow) makeUserTab() *container.TabItem {
   return container.NewTabItem("User", cw.buildUserPane())
 }
 
-func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
-  if cw.core.User() == nil {
-    // no user yet
-    users := cw.core.Users()
-    cw.userSelect = widget.NewSelect(users, nil)
-    cw.userSelect.PlaceHolder = "Choose existing…"
-    load := widget.NewButton("Load", func() {
-      if sel := cw.userSelect.Selected; sel != "" {
-        if err := cw.core.SetDefaultUser(sel); err != nil {
-          dialog.ShowError(err, cw.wnd)
-          return
-        }
-        cw.RefreshAll()
-      }
-    })
 
-    cw.newUserEntry = widget.NewEntry()
-    cw.newUserEntry.SetPlaceHolder("New user ID")
-    create := widget.NewButton("Create", func() {
-      id := cw.newUserEntry.Text
-      if id == "" {
-        dialog.ShowInformation("Missing name",
-          "Please enter a user ID", cw.wnd)
+
+func (cw *ChatWindow) buildUserPane() fyne.CanvasObject {
+  pane := container.NewVBox()
+
+  // 1) No user loaded
+  if cw.core.User() == nil {
+    sel := widget.NewSelect(cw.core.Users(), nil)
+    sel.PlaceHolder = "Choose existing…"
+    loadBtn := widget.NewButton("Load", func() {
+      if sel.Selected == "" {
         return
       }
-      if err := cw.core.CreateUser(id); err != nil {
+      if err := cw.core.SetDefaultUser(sel.Selected); err != nil {
         dialog.ShowError(err, cw.wnd)
         return
       }
       cw.RefreshAll()
     })
 
-    return container.NewVBox(
-      widget.NewLabelWithStyle("No user loaded",
-        fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-      widget.NewSeparator(),
-      container.NewHBox(cw.userSelect, load),
-      widget.NewSeparator(),
-      container.NewHBox(cw.newUserEntry, create),
-    )
-  }
-
-  // editing an existing user
-  usr := cw.core.User()
-  cw.userNameEntry = widget.NewEntry()
-  cw.userNameEntry.SetText(usr.Name)
-
-  // select default agent
-  metas := cw.core.Agents()
-  names := make([]string, len(metas))
-  for i, m := range metas {
-    names[i] = m.Name
-  }
-  cw.userDefaultSelect = widget.NewSelect(names, nil)
-  cw.userDefaultSelect.PlaceHolder = "None"
-  if usr.DefaultAgent != nil {
-    cw.userDefaultSelect.SetSelected(usr.DefaultAgent.Name)
-  }
-
-  form := widget.NewForm(
-    &widget.FormItem{Text: "User Name",     Widget: cw.userNameEntry},
-    &widget.FormItem{Text: "Default Agent", Widget: cw.userDefaultSelect},
-  )
-  form.OnSubmit = func() {
-    usr.Name = cw.userNameEntry.Text
-    if sel := cw.userDefaultSelect.Selected; sel != "" {
-      if err := cw.core.SetDefaultAgent(sel); err != nil {
+    newEntry := widget.NewEntry()
+    newEntry.SetPlaceHolder("New user ID…")
+    createBtn := widget.NewButton("Create", func() {
+      if newEntry.Text == "" {
+        dialog.ShowInformation("Missing name", "Please enter a user ID", cw.wnd)
+        return
+      }
+      if err := cw.core.CreateUser(newEntry.Text); err != nil {
         dialog.ShowError(err, cw.wnd)
         return
       }
+      cw.RefreshAll()
+    })
+
+    pane.Add(widget.NewLabelWithStyle(
+      "No user loaded",
+      fyne.TextAlignCenter, fyne.TextStyle{Bold: true},
+    ))
+    pane.Add(widget.NewSeparator())
+    pane.Add(container.NewHBox(sel, loadBtn))
+    pane.Add(widget.NewSeparator())
+    pane.Add(container.NewHBox(newEntry, createBtn))
+
+  } else {
+    // 2) User is loaded → edit form
+    usr := cw.core.User()
+    nameEntry := widget.NewEntry()
+    nameEntry.SetText(usr.Name)
+
+    metas := cw.core.Agents()
+    names := make([]string, len(metas))
+    for i, m := range metas {
+      names[i] = m.Name
     }
-    cw.RefreshAll()
-    cw.mainTabs.SelectTabIndex(0)
-  }
-  form.OnCancel = func() {
-    cw.userNameEntry.SetText(usr.Name)
+    defSel := widget.NewSelect(names, nil)
+    defSel.PlaceHolder = "None"
     if usr.DefaultAgent != nil {
-      cw.userDefaultSelect.SetSelected(usr.DefaultAgent.Name)
+      defSel.SetSelected(usr.DefaultAgent.Name)
     }
-    cw.mainTabs.SelectTabIndex(0)
+
+    form := widget.NewForm(
+      &widget.FormItem{Text: "User Name",     Widget: nameEntry},
+      &widget.FormItem{Text: "Default Agent", Widget: defSel},
+    )
+    form.OnSubmit = func() {
+      usr.Name = nameEntry.Text
+      if defSel.Selected != "" {
+        if err := cw.core.SetDefaultAgent(defSel.Selected); err != nil {
+          dialog.ShowError(err, cw.wnd)
+          return
+        }
+      }
+      cw.RefreshAll()
+      cw.mainTabs.SelectTabIndex(0)
+    }
+    form.OnCancel = func() {
+      nameEntry.SetText(usr.Name)
+      if usr.DefaultAgent != nil {
+        defSel.SetSelected(usr.DefaultAgent.Name)
+      }
+      cw.mainTabs.SelectTabIndex(0)
+    }
+
+    pane.Add(form)
   }
 
-  return container.NewVBox(form)
+  // 3) Always append the agents list at the bottom
+  pane.Add(widget.NewSeparator())
+  pane.Add(cw.buildAgentsList())
+
+  return pane
 }
+
 
 
 func (cw *ChatWindow) refreshUserStatus() {
@@ -380,6 +390,6 @@ func (cw *ChatWindow) refreshUserStatus() {
 
   // 3) Show them both
   cw.statusLabel.SetText(
-    fmt.Sprintf("User: %s\nCurrent Agent: %s", userPart, agentPart),
+    fmt.Sprintf("User: %s\n   Current Agent: %s", userPart, agentPart),
   )
 }
